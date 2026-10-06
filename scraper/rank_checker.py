@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-StayNaivasha SEO Rank Checker
+Avistay SEO Rank Checker
 ==============================
-Checks where staynaivasha.co.ke appears on Bing for target Naivasha
+Checks where avistay.com appears on Bing for target Naivasha
 accommodation keywords. Bing is used because it allows non-JS scraping
 without heavy bot-detection.
 
@@ -27,7 +27,7 @@ from pathlib import Path
 import httpx
 from bs4 import BeautifulSoup
 
-TARGET = "staynaivasha.co.ke"
+TARGET = "avistay.com"
 
 # ── Keywords that potential guests actually type ───────────────────────────────
 
@@ -168,7 +168,7 @@ async def analyse_top_result(client: httpx.AsyncClient, url: str) -> dict:
 
 async def main():
     print(bold("\n" + "═" * 62))
-    print(bold("  StayNaivasha — SEO Rank Report"))
+    print(bold("  Avistay — SEO Rank Report"))
     print(f"  Target  : {TARGET}")
     print(f"  Date    : {datetime.now().strftime('%A, %d %B %Y  %H:%M')}")
     print(f"  Engine  : Bing (Kenya region)")
@@ -222,7 +222,7 @@ async def main():
     if not ranked:
         print(yellow("  ⚠  No rankings yet — the site may not be indexed."))
         print("     1. Go to https://search.google.com/search-console")
-        print("        and submit https://staynaivasha.co.ke/sitemap.xml")
+        print("        and submit https://avistay.com/sitemap.xml")
         print("     2. Use 'URL Inspection' to request indexing of the homepage")
         print("     3. Share the site on social media to attract first backlinks")
     else:
@@ -246,7 +246,7 @@ async def main():
         print("  4. Ask property owners to share their listing URLs on")
         print("     WhatsApp groups — signals to Google this is a real site")
         print("  5. Make sure sitemap is submitted:")
-        print("     https://staynaivasha.co.ke/sitemap.xml")
+        print("     https://avistay.com/sitemap.xml")
 
     # ── Save CSV ──────────────────────────────────────────────────────────────
     out = Path(__file__).parent / f"rank_report_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"

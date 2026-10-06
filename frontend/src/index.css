@@ -1,70 +1,279 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
 
-@keyframes lake-shimmer {
-  0%, 100% { opacity: 0.5; transform: scaleY(1); }
-  50%       { opacity: 0.85; transform: scaleY(1.04); }
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-forest: #1f4d36;
+  --color-teal: #2b6777;
+  --color-mint: #7dbf8e;
+  --color-clay: #b4511f;
+  --color-gold: #e9a73b;
+  --color-offwhite: #fbf7f0;
+  --color-nearblack: #141b16;
+
+  --font-display: Cormorant Garamond, serif;
+  --font-ui: Inter, sans-serif;
+
+  --animate-lake-shimmer: lake-shimmer 4s ease-in-out infinite;
+  --animate-star-pulse: star-pulse 2.5s ease-in-out infinite;
+  --animate-fade-up: fade-up 0.5s ease-out both;
+  --animate-moon-glow: moon-glow 3s ease-in-out infinite;
+  --animate-scroll-cue: scroll-cue 2s ease-in-out infinite;
+  --animate-firefly: firefly 4s ease-in-out infinite;
+  --animate-mpesa-ring: mpesa-ring 1.2s ease-out infinite;
+  --animate-aurora: aurora 6s ease-in-out infinite;
+
+  @keyframes lake-shimmer {
+    0%,
+    100% {
+      opacity: 0.5;
+      transform: scaleY(1);
+    }
+    50% {
+      opacity: 0.85;
+      transform: scaleY(1.04);
+    }
+  }
+  @keyframes star-pulse {
+    0%,
+    100% {
+      opacity: 0.55;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.3);
+    }
+  }
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes moon-glow {
+    0%,
+    100% {
+      box-shadow:
+        0 0 18px rgba(180, 240, 140, 0.35),
+        0 0 40px rgba(100, 200, 80, 0.15);
+    }
+    50% {
+      box-shadow:
+        0 0 28px rgba(180, 240, 140, 0.55),
+        0 0 60px rgba(100, 200, 80, 0.25);
+    }
+  }
+  @keyframes scroll-cue {
+    0%,
+    100% {
+      opacity: 0.25;
+      transform: translateY(0);
+    }
+    50% {
+      opacity: 0.6;
+      transform: translateY(4px);
+    }
+  }
+  @keyframes firefly {
+    0%,
+    100% {
+      opacity: 0;
+      transform: translate(0, 0);
+    }
+    20% {
+      opacity: 0.9;
+    }
+    50% {
+      opacity: 0.4;
+      transform: translate(5px, -10px);
+    }
+    80% {
+      opacity: 0.7;
+      transform: translate(-3px, -5px);
+    }
+  }
+  @keyframes mpesa-ring {
+    0% {
+      transform: scale(0.5);
+      opacity: 0.7;
+    }
+    60% {
+      opacity: 0.15;
+    }
+    100% {
+      transform: scale(2.2);
+      opacity: 0;
+    }
+  }
+  @keyframes aurora {
+    0%,
+    100% {
+      opacity: 0.6;
+      transform: scaleX(1) translateX(0);
+    }
+    50% {
+      opacity: 1;
+      transform: scaleX(1.06) translateX(6px);
+    }
+  }
 }
 
-@keyframes star-pulse {
-  0%, 100% { opacity: 0.55; transform: scale(1); }
-  50%       { opacity: 1;    transform: scale(1.3); }
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
 }
 
-@keyframes fade-up {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+@layer utilities {
+  @keyframes lake-shimmer {
+    0%,
+    100% {
+      opacity: 0.5;
+      transform: scaleY(1);
+    }
+    50% {
+      opacity: 0.85;
+      transform: scaleY(1.04);
+    }
+  }
 
-@keyframes moon-glow {
-  0%, 100% { box-shadow: 0 0 18px rgba(180,240,140,0.35), 0 0 40px rgba(100,200,80,0.15); }
-  50%       { box-shadow: 0 0 28px rgba(180,240,140,0.55), 0 0 60px rgba(100,200,80,0.25); }
-}
+  @keyframes star-pulse {
+    0%,
+    100% {
+      opacity: 0.55;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.3);
+    }
+  }
 
-@keyframes scroll-cue {
-  0%, 100% { opacity: 0.25; transform: translateY(0); }
-  50%       { opacity: 0.6;  transform: translateY(4px); }
-}
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 
-@keyframes firefly {
-  0%, 100% { opacity: 0;   transform: translate(0, 0); }
-  20%       { opacity: 0.9; }
-  50%       { opacity: 0.4; transform: translate(5px, -10px); }
-  80%       { opacity: 0.7; transform: translate(-3px, -5px); }
-}
+  @keyframes moon-glow {
+    0%,
+    100% {
+      box-shadow:
+        0 0 18px rgba(180, 240, 140, 0.35),
+        0 0 40px rgba(100, 200, 80, 0.15);
+    }
+    50% {
+      box-shadow:
+        0 0 28px rgba(180, 240, 140, 0.55),
+        0 0 60px rgba(100, 200, 80, 0.25);
+    }
+  }
 
-@keyframes mpesa-ring {
-  0%   { transform: scale(0.5); opacity: 0.7; }
-  60%  { opacity: 0.15; }
-  100% { transform: scale(2.2); opacity: 0; }
-}
+  @keyframes scroll-cue {
+    0%,
+    100% {
+      opacity: 0.25;
+      transform: translateY(0);
+    }
+    50% {
+      opacity: 0.6;
+      transform: translateY(4px);
+    }
+  }
 
-@keyframes aurora {
-  0%, 100% { opacity: 0.6; transform: scaleX(1)    translateX(0); }
-  50%       { opacity: 1;   transform: scaleX(1.06) translateX(6px); }
+  @keyframes firefly {
+    0%,
+    100% {
+      opacity: 0;
+      transform: translate(0, 0);
+    }
+    20% {
+      opacity: 0.9;
+    }
+    50% {
+      opacity: 0.4;
+      transform: translate(5px, -10px);
+    }
+    80% {
+      opacity: 0.7;
+      transform: translate(-3px, -5px);
+    }
+  }
+
+  @keyframes mpesa-ring {
+    0% {
+      transform: scale(0.5);
+      opacity: 0.7;
+    }
+    60% {
+      opacity: 0.15;
+    }
+    100% {
+      transform: scale(2.2);
+      opacity: 0;
+    }
+  }
+
+  @keyframes aurora {
+    0%,
+    100% {
+      opacity: 0.6;
+      transform: scaleX(1) translateX(0);
+    }
+    50% {
+      opacity: 1;
+      transform: scaleX(1.06) translateX(6px);
+    }
+  }
 }
 
 @layer base {
   :root {
-    /* ── Brand palette — extracted from Lake Naivasha at golden hour ── */
-    --color-forest:  #1e4a22;   /* acacia tree dark green              */
-    --color-teal:    #186878;   /* deep lake water teal                */
-    --color-mint:    #3ec890;   /* lake shimmer / success states       */
-    --color-amber:   #d4892a;   /* sunset golden amber — primary accent*/
-    --color-gold:    #f0b840;   /* direct sun / highlight              */
-    --color-sky:     #4a8ec8;   /* blue sky upper half                 */
-    --color-offwhite:#fef6e8;   /* warm lit mist / morning cream       */
-    --color-nearblack:#1a1008;  /* deep earth / hippo shadow           */
+    /* ── Avistay brand — "Lake & Acacia" ──────────────────────────────
+       Acacia green leads; terracotta is kept for the one main action on
+       a screen (Search, Book) so it always stands out. Deliberately far
+       from other travel brands' blue/yellow and coral palettes. */
+    --color-forest:  #1f4d36;   /* Acacia — primary brand, headers      */
+    --color-teal:    #2b6777;   /* Lake — links, info, focus            */
+    --color-mint:    #7dbf8e;   /* Papyrus — highlights on dark, success*/
+    --color-clay:    #b4511f;   /* Terracotta — main action buttons     */
+    --color-clay-dark:#963f15;  /* Terracotta hover/pressed             */
+    --color-amber:   #b4511f;   /* legacy name → terracotta             */
+    --color-gold:    #e9a73b;   /* Sundowner — stars, small accents     */
+    --color-sky:     #2b6777;   /* legacy name → lake                   */
+    --color-offwhite:#fbf7f0;   /* Morning mist                         */
+    --color-nearblack:#141b16;  /* Volcanic soil — darkest text/bg      */
 
-    /* ── UI surfaces — warm, drawn from the photo's light temperature ── */
-    --bg-primary:   #faf7f2;   /* warm off-white (same tint as the lit sky) */
+    /* ── UI surfaces ── */
+    --bg-primary:   #f8f5ef;   /* warm mist                              */
     --bg-surface:   #ffffff;
-    --bg-overlay:   #f2ece2;   /* warm parchment — inputs, secondary fills  */
-    --text-primary: #1a1208;   /* warm near-black, not cold gray            */
-    --text-muted:   #7a6a58;   /* warm brown-gray — bark / shadow tone      */
-    --border:       #e8dfd0;   /* parchment — soft warm edge                */
-    --shadow:       0 1px 3px rgba(26,14,4,0.08), 0 4px 14px rgba(26,14,4,0.05);
+    --bg-overlay:   #efece4;   /* inputs, secondary fills                */
+    --text-primary: #17201a;   /* green-black, never pure black          */
+    --text-muted:   #5f6b62;   /* sage grey (5:1 on mist)                */
+    --border:       #e3dfd5;
+    --shadow:       0 1px 3px rgba(20,27,22,0.08), 0 4px 14px rgba(20,27,22,0.06);
   }
 
   @media (forced-colors: active) {
@@ -104,3 +313,25 @@
     box-shadow: var(--shadow);
   }
 }
+
+/* ── Notches & status bars (mobile app, iPhone home-screen) ────────────────
+   env(safe-area-inset-*) is 0 in a normal browser tab, so the website is
+   unchanged; inside the app it keeps bars clear of the notch/status bar. */
+:root { --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px); --header-h: 4rem; }
+/* Phones & tablets get a compact top bar (tabs live at the bottom); computers the full one. */
+@media (min-width: 64rem) { :root { --header-h: 5rem; } }
+body { padding-top: var(--sat); }
+.fixed.top-0 { top: var(--sat); }
+.sticky.top-0 { top: var(--sat); }
+
+/* Solid strip behind the status bar so content never shows through it. */
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto 0; height: var(--sat);
+  background: var(--color-forest, #1f4d36); z-index: 70; pointer-events: none;
+}
+
+/* Space for the fixed top bar (its height changes at the lg breakpoint). */
+@utility pt-header { padding-top: var(--header-h); }
+@utility top-header { top: calc(var(--header-h) + var(--sat)); }
+/* Space for the bottom tab bar on phones/tablets, including the iPhone home indicator. */
+@utility bottom-tabs { bottom: calc(4rem + var(--sab)); }

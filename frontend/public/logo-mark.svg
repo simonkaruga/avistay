@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Avistay">
+  <circle cx="32" cy="32" r="29.5" fill="#fbf7f0" stroke="#1f4d36" stroke-width="3"/>
+  <circle cx="44.5" cy="20.5" r="6" fill="#e9a73b"/>
+  <path d="M14.5 45 L32 15 L49.5 45" fill="none" stroke="#1f4d36" stroke-width="5.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M24 36 H40" stroke="#b4511f" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M11 50.5 q5.25 -3.2 10.5 0 t10.5 0 t10.5 0 t10.5 0" fill="none" stroke="#2b6777" stroke-width="3" stroke-linecap="round"/>
+  <path d="M19 55.5 q4.5 -2.6 9 0 t9 0 t9 0" fill="none" stroke="#2b6777" stroke-width="2.4" stroke-linecap="round" opacity=".6"/>
+</svg>

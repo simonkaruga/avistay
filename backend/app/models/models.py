@@ -4,8 +4,9 @@ from typing import Optional
 
 from sqlalchemy import (
     JSON, BigInteger, Boolean, Date, DateTime, Enum, ForeignKey,
-    Integer, SmallInteger, String, Text,
+    Index, Integer, SmallInteger, String, Text,
 )
+from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -19,6 +20,14 @@ def utcnow() -> datetime:
 def new_uuid() -> str:
     return str(uuid.uuid4())
 
+
+
+REF_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"   # no 0/O/1/I: codes get read out loud
+
+
+def new_ref_code() -> str:
+    import secrets
+    return "AV" + "".join(secrets.choice(REF_ALPHABET) for _ in range(6))
 
 class User(Base):
     __tablename__ = "users"
@@ -34,7 +43,18 @@ class User(Base):
     passport_number: Mapped[Optional[str]] = mapped_column(String(50))
     fcm_token: Mapped[Optional[str]] = mapped_column(String(500))
     sms_opt_in: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    # Owner commission on the room price. 10% standard, 7% founding partners (set by admin).
+    commission_pct: Mapped[int] = mapped_column(SmallInteger, default=10, server_default="10")
+    # Super admins (role "admin" + this flag) can also change platform settings,
+    # staff roles and money records. Grant with: python -m app.cli make-superadmin
+    is_superadmin: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # Set when the user deletes their account; personal data is wiped, booking
+    # records stay (anonymised) for the 7-year tax retention requirement.
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    # "Sign out everywhere": any login token issued before this is refused
+    # (password reset, ban, account deletion). Works with or without Redis.
+    sessions_revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     properties: Mapped[list["Property"]] = relationship(back_populates="owner")
@@ -59,6 +79,22 @@ class Property(Base):
     no_checkout_days: Mapped[Optional[str]] = mapped_column(String(20))  # e.g. "0,6" (Sun,Sat)
     response_time_hours: Mapped[Optional[int]] = mapped_column(SmallInteger)
     cancellation_policy: Mapped[str] = mapped_column(String(30), default="moderate")
+    area: Mapped[Optional[str]] = mapped_column(String(30), index=True)   # one of NAIVASHA_AREAS
+    # House rules & policies — the owner's choice (cancellation + min stay above too).
+    deposit_amount: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")  # KES, 0 = no deposit
+    max_guests: Mapped[Optional[int]] = mapped_column(SmallInteger)
+    check_in_from: Mapped[str] = mapped_column(String(5), default="14:00", server_default="14:00")
+    check_in_until: Mapped[Optional[str]] = mapped_column(String(5))
+    check_out_until: Mapped[str] = mapped_column(String(5), default="10:00", server_default="10:00")
+    children_allowed: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    pets_allowed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    smoking_allowed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    parties_allowed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    quiet_hours: Mapped[Optional[str]] = mapped_column(String(11))           # "22:00-07:00"
+    house_rules: Mapped[Optional[str]] = mapped_column(Text)                 # anything else, in the owner's words
+    # Home-page curation by the Avistay team ("Stay at our top unique properties").
+    featured_rank: Mapped[Optional[int]] = mapped_column(SmallInteger)        # set = featured; lower shows first
+    featured_tagline: Mapped[Optional[str]] = mapped_column(String(80))       # e.g. "Private jetty on the lake"
     ical_import_url: Mapped[Optional[str]] = mapped_column(String(500))
     active: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -96,6 +132,11 @@ class ExternalCalendar(Base):
 
 class Availability(Base):
     __tablename__ = "availability"
+    # One row per property-night. This constraint is what actually prevents
+    # double bookings — two concurrent bookings for overlapping dates cannot
+    # both insert their rows.
+    # (Created by migration 0001; declared here so tests run with it too.)
+    __table_args__ = (Index("ix_availability_property_date", "property_id", "date", unique=True),)
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
     property_id: Mapped[str] = mapped_column(ForeignKey("properties.id"), nullable=False)
@@ -113,10 +154,20 @@ class Booking(Base):
     property_id: Mapped[str] = mapped_column(ForeignKey("properties.id"), nullable=False)
     check_in: Mapped[date] = mapped_column(Date, nullable=False)
     check_out: Mapped[date] = mapped_column(Date, nullable=False)
-    total_amount: Mapped[int] = mapped_column(BigInteger, nullable=False)   # KES integer
+    # Price snapshot at booking time — all KES integers.
+    # total_amount = room_amount + levy_amount + platform_fee + deposit_amount - discount
+    total_amount: Mapped[int] = mapped_column(BigInteger, nullable=False)
     platform_fee: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    deposit_amount: Mapped[int] = mapped_column(BigInteger, default=0)
+    deposit_amount: Mapped[int] = mapped_column(BigInteger, default=0)   # refundable damage deposit
+    room_amount: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")   # nights x price
+    levy_amount: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")   # 2% tourism levy (TRA)
+    commission_kes: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")  # owner's commission, locked at booking
+    cancellation_policy: Mapped[str] = mapped_column(String(30), default="moderate", server_default="moderate")
+    deposit_status: Mapped[str] = mapped_column(
+        Enum("none", "held", "refunded", "claimed", name="deposit_status"), default="none", server_default="none"
+    )
     promo_code_id: Mapped[Optional[str]] = mapped_column(ForeignKey("promo_codes.id"))
+    agent_id: Mapped[Optional[str]] = mapped_column(ForeignKey("agents.id"))   # who referred this guest
     status: Mapped[str] = mapped_column(
         Enum("pending", "confirmed", "checked_in", "completed", "cancelled", name="booking_status"),
         default="pending",
@@ -129,6 +180,11 @@ class Booking(Base):
     checkin_code: Mapped[Optional[str]] = mapped_column(String(4))
     mpesa_ref: Mapped[Optional[str]] = mapped_column(String(50))
     terms_accepted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    checked_in_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    cancelled_by: Mapped[Optional[str]] = mapped_column(
+        Enum("guest", "owner", "admin", "system", name="cancelled_by")
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     guest: Mapped["User"] = relationship(back_populates="bookings")
@@ -142,9 +198,19 @@ class Payment(Base):
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
     booking_id: Mapped[str] = mapped_column(ForeignKey("bookings.id"), nullable=False)
     amount: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    type: Mapped[str] = mapped_column(Enum("charge", "refund", "payout", name="payment_type"))
-    mpesa_ref: Mapped[Optional[str]] = mapped_column(String(50))
-    status: Mapped[str] = mapped_column(Enum("pending", "completed", "failed", name="payment_status"), default="pending")
+    type: Mapped[str] = mapped_column(Enum("charge", "refund", "payout", "deposit_refund", "claim_payout", "agent_commission", name="payment_type"))
+    mpesa_ref: Mapped[Optional[str]] = mapped_column(String(50))  # M-Pesa receipt / TransactionID
+    # CheckoutRequestID (STK charge) or ConversationID (B2C payout/refund) —
+    # the key Safaricom echoes back in callbacks.
+    provider_request_id: Mapped[Optional[str]] = mapped_column(String(100), unique=True)
+    status: Mapped[str] = mapped_column(Enum("pending", "processing", "completed", "failed", name="payment_status"), default="pending")
+    # "mpesa" or "card" (Paystack). For refunds: where the money goes back to.
+    method: Mapped[str] = mapped_column(String(10), default="mpesa", server_default="mpesa")
+    # Card surcharge the guest paid on top of `amount` (charges only). Not part
+    # of the booking money, so normal refunds don't include it.
+    fee_amount: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    # Refunds of one specific charge (e.g. a duplicate/late payment).
+    refund_of: Mapped[Optional[str]] = mapped_column(ForeignKey("payments.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -214,6 +280,8 @@ class Agent(Base):
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False, unique=True)
     agency_name: Mapped[Optional[str]] = mapped_column(String(200))
+    # Personal code on the agent's share links: avistay.com/property/…?ref=AV7K2Q9X
+    ref_code: Mapped[str] = mapped_column(String(12), unique=True, nullable=False, default=lambda: new_ref_code())
     commission_pct: Mapped[int] = mapped_column(SmallInteger, default=5)  # percentage
     status: Mapped[str] = mapped_column(
         Enum("pending", "active", "suspended", name="agent_status"), default="pending"
@@ -254,4 +322,129 @@ class DamageClaim(Base):
         Enum("pending", "approved", "rejected", name="claim_status"), default="pending"
     )
     ruling: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+# ── Areas of Naivasha ─────────────────────────────────────────────────────────
+# Guests choose stays by area. Owners pick one when listing. Keep slugs stable
+# (they're in URLs); labels can change.
+NAIVASHA_AREAS: dict[str, str] = {
+    "south-lake": "South Lake Road",
+    "north-lake": "North Lake & Kongoni",
+    "hells-gate": "Hell's Gate & Olkaria",
+    "town": "Naivasha Town",
+    "longonot": "Longonot & Mai Mahiu",
+}
+
+
+# ── Home page content (managed by admins in the admin panel) ─────────────────
+
+class Offer(Base):
+    """A real promotion shown on the home page while it runs."""
+    __tablename__ = "offers"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
+    title: Mapped[str] = mapped_column(String(80), nullable=False)
+    subtitle: Mapped[Optional[str]] = mapped_column(String(120))
+    body: Mapped[Optional[str]] = mapped_column(String(300))
+    image_url: Mapped[Optional[str]] = mapped_column(String(500))
+    cta_label: Mapped[str] = mapped_column(String(30), default="See stays")
+    link: Mapped[str] = mapped_column(String(300), default="/search")        # internal path only
+    promo_code: Mapped[Optional[str]] = mapped_column(String(30))            # shown on the card if set
+    starts_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    sort_order: Mapped[int] = mapped_column(SmallInteger, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Destination(Base):
+    """A place guests come for (Hell's Gate, Crescent Island…), linked to the area to stay in."""
+    __tablename__ = "destinations"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
+    name: Mapped[str] = mapped_column(String(60), nullable=False)
+    tagline: Mapped[Optional[str]] = mapped_column(String(120))
+    image_url: Mapped[Optional[str]] = mapped_column(String(500))
+    area: Mapped[Optional[str]] = mapped_column(String(30))                 # NAIVASHA_AREAS slug
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    sort_order: Mapped[int] = mapped_column(SmallInteger, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+# ── Platform settings (edited by super admins; defaults in services/settings.py) ──
+
+class PlatformSetting(Base):
+    __tablename__ = "platform_settings"
+
+    key: Mapped[str] = mapped_column(String(60), primary_key=True)
+    value: Mapped[dict] = mapped_column(JSON, nullable=False)        # {"v": <value>}
+    updated_by: Mapped[Optional[str]] = mapped_column(ForeignKey("users.id"))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+# ── Disputes ──────────────────────────────────────────────────────────────────
+# One channel for both sides: a guest reports a problem with the stay (freezes
+# the owner payout), an owner reports damage (freezes the deposit refund).
+# Admin rules; the ruling moves the money.
+
+GUEST_DISPUTE_REASONS = ("no_access", "not_as_described", "safety", "cleanliness", "other")
+OWNER_DISPUTE_REASONS = ("damage", "house_rules", "other")
+
+
+class Dispute(Base):
+    __tablename__ = "disputes"
+    # At most one OPEN dispute per booking per side.
+    __table_args__ = (
+        Index("uq_disputes_open_per_side", "booking_id", "opener_role", unique=True,
+              postgresql_where=text("status = 'open'"), sqlite_where=text("status = 'open'")),
+    )
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
+    booking_id: Mapped[str] = mapped_column(ForeignKey("bookings.id"), nullable=False, index=True)
+    opened_by: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    opener_role: Mapped[str] = mapped_column(Enum("guest", "owner", name="dispute_party"), nullable=False)
+    reason: Mapped[str] = mapped_column(String(30), nullable=False)
+    claimed_amount: Mapped[int] = mapped_column(BigInteger, default=0)   # KES the opener asks for
+    status: Mapped[str] = mapped_column(
+        Enum("open", "resolved", "withdrawn", name="dispute_status"), default="open", index=True
+    )
+    # Ruling — what the admin decided to move
+    guest_refund_kes: Mapped[int] = mapped_column(BigInteger, default=0)
+    owner_award_kes: Mapped[int] = mapped_column(BigInteger, default=0)
+    ruling: Mapped[Optional[str]] = mapped_column(Text)
+    resolved_by: Mapped[Optional[str]] = mapped_column(ForeignKey("users.id"))
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    messages: Mapped[list["DisputeMessage"]] = relationship(
+        back_populates="dispute", order_by="DisputeMessage.created_at"
+    )
+
+
+class DisputeMessage(Base):
+    __tablename__ = "dispute_messages"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
+    dispute_id: Mapped[str] = mapped_column(ForeignKey("disputes.id"), nullable=False, index=True)
+    author_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    author_role: Mapped[str] = mapped_column(Enum("guest", "owner", "admin", name="message_author"), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    attachments: Mapped[Optional[list]] = mapped_column(JSON)   # Cloudinary URLs only
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    dispute: Mapped["Dispute"] = relationship(back_populates="messages")
+
+
+class OwnerAdjustment(Base):
+    """Ledger of amounts deducted from (negative) or added to an owner's future
+    payouts — cancellation penalties, dispute refunds already paid out."""
+    __tablename__ = "owner_adjustments"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    booking_id: Mapped[Optional[str]] = mapped_column(ForeignKey("bookings.id"))
+    amount: Mapped[int] = mapped_column(BigInteger, nullable=False)   # KES, negative = deduction
+    reason: Mapped[str] = mapped_column(String(50), nullable=False)
+    applied_payment_id: Mapped[Optional[str]] = mapped_column(ForeignKey("payments.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

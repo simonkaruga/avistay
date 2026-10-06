@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 
-// eslint-disable-next-line react-refresh/only-export-components
 export function useCountUp(target: number, duration = 1800) {
   const [count, setCount]  = useState(0);
   const containerRef       = useRef<HTMLDivElement>(null);

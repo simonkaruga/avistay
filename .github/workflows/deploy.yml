@@ -1,4 +1,4 @@
-name: Deploy StayNaivasha
+name: Deploy Avistay
 
 on:
   push:
@@ -9,6 +9,17 @@ jobs:
   ci:
     name: Lint, Type Check, Test
     runs-on: ubuntu-latest
+    services:
+      # Tests must run on Postgres: SQLite ignores row locks and accepted the
+      # uuid LIKE query that broke M-Pesa callbacks in production.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: staynaivasha_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -30,10 +41,19 @@ jobs:
       - name: pip-audit (dependency scan)
         run: pip-audit -r backend/requirements.txt
 
-      - name: Pytest
-        run: pytest backend/ -q
+      - name: Migrations apply cleanly
+        run: alembic upgrade head && alembic downgrade 0007 && alembic upgrade head
+        working-directory: backend
         env:
-          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/staynaivasha_test
+
+      - name: Pytest
+        run: |
+          psql postgresql://postgres:postgres@localhost:5432/postgres -c "CREATE DATABASE staynaivasha_pytest"
+          pytest -q
+        working-directory: backend
+        env:
+          TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/staynaivasha_pytest
           REDIS_URL: ${{ secrets.TEST_REDIS_URL }}
 
       - name: Set up Node
@@ -111,7 +131,7 @@ jobs:
           npx @railway/cli@latest rollback --service backend --environment production
           curl -X POST "https://api.africastalking.com/version1/messaging" \
             -H "apiKey: ${{ secrets.AT_API_KEY }}" \
-            -d "username=${{ secrets.AT_USERNAME }}&to=${{ secrets.FOUNDER_PHONE }}&message=ROLLBACK: StayNaivasha deploy failed. Previous version restored."
+            -d "username=${{ secrets.AT_USERNAME }}&to=${{ secrets.FOUNDER_PHONE }}&message=ROLLBACK: Avistay deploy failed. Previous version restored."
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 

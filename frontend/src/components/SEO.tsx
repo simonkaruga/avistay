@@ -7,11 +7,11 @@
  */
 import { Helmet } from "react-helmet-async";
 
-const SITE      = "StayNaivasha";
-const BASE_URL  = "https://staynaivasha.co.ke";
+const SITE      = "Avistay";
+const BASE_URL  = "https://avistay.com";
 const DEFAULT_DESC =
-  "Book holiday homes, cottages, villas & campsites in Naivasha, Kenya. " +
-  "Secure M-Pesa payments. Verified listings. Instant confirmation.";
+  "Beautiful stays. Better experiences. Book holiday homes, cottages, villas & campsites in Naivasha, Kenya. " +
+  "Secure M-Pesa and card payments. Verified listings. Instant confirmation.";
 const DEFAULT_IMG = `${BASE_URL}/icons/icon-512.png`;
 
 interface Props {
@@ -20,14 +20,14 @@ interface Props {
   image?:       string;   // absolute URL
   url?:         string;   // path, e.g. "/property/abc123"
   type?:        "website" | "article";
-  noIndex?:     boolean;  // set true on admin / owner pages — keep them off Google
+  noIndex?:     boolean;  // set true on admin / owner pages. Keep them off Google
   jsonLd?:      object | object[];
 }
 
 export default function SEO({
   title, description, image, url, type = "website", noIndex, jsonLd,
 }: Props) {
-  const fullTitle  = title ? `${title} | ${SITE}` : `${SITE} — Holiday Homes & Cottages in Naivasha, Kenya`;
+  const fullTitle  = title ? `${title} | ${SITE}` : `${SITE}. Holiday Homes & Cottages in Naivasha, Kenya`;
   const desc       = description ?? DEFAULT_DESC;
   const img        = image       ?? DEFAULT_IMG;
   const canonical  = url ? `${BASE_URL}${url}` : BASE_URL;

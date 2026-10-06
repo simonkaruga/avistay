@@ -1,16 +1,22 @@
 import os
-import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.pool import NullPool
 
 from app.core.database import Base, get_db
 from app.core.security import create_access_token
 
 TEST_DB_FILE = "/tmp/staynaivasha_test.db"
-TEST_DB_URL  = f"sqlite+aiosqlite:///{TEST_DB_FILE}"
+# CI should set TEST_DATABASE_URL to a throwaway Postgres DB: SQLite ignores
+# row locks and accepts queries Postgres rejects, which has hidden real bugs.
+TEST_DB_URL  = os.environ.get("TEST_DATABASE_URL", f"sqlite+aiosqlite:///{TEST_DB_FILE}")
 
-_engine = create_async_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+_engine = create_async_engine(
+    TEST_DB_URL,
+    connect_args={"check_same_thread": False} if TEST_DB_URL.startswith("sqlite") else {},
+    poolclass=NullPool,  # each test has its own event loop; asyncpg connections can't cross loops
+)
 _SessionFactory = async_sessionmaker(_engine, expire_on_commit=False)
 
 

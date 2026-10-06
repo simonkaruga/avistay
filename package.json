@@ -1,9 +1,17 @@
 {
-  "name": "staynaivasha",
+  "name": "avistay",
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "concurrently --names \"frontend,backend\" --prefix-colors \"cyan,green\" \"npm run dev --prefix frontend\" \"bash -c 'cd backend && .venv/bin/uvicorn main:app --reload --port 8000'\"",
+    "start": "node scripts/preflight.mjs && npm run dev",
+    "dev": "concurrently --kill-others --names \"web,api\" --prefix-colors \"cyan,green\" \"npm run dev --prefix frontend\" \"npm run start:api\"",
+    "start:api": "cd backend && .venv/bin/uvicorn main:app --reload --port 8000",
+    "start:web": "npm run dev --prefix frontend",
+    "worker": "cd backend && .venv/bin/celery -A app.workers.celery_app worker --beat --loglevel=info --concurrency=2",
+    "db:migrate": "cd backend && .venv/bin/alembic upgrade head",
+    "make-superadmin": "cd backend && .venv/bin/python -m app.cli make-superadmin",
+    "list-admins": "cd backend && .venv/bin/python -m app.cli list-admins",
+    "test": "cd backend && .venv/bin/python -m pytest -q && cd ../frontend && npx vitest run",
     "install:frontend": "npm install --prefix frontend",
     "setup": "npm install && npm run install:frontend && bash -c 'cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt'"
   },

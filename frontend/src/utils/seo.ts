@@ -19,9 +19,9 @@ interface SEOMeta {
   noIndex?:     boolean;
 }
 
-const SITE_NAME    = "StayNaivasha";
-const DEFAULT_DESC = "Book holiday homes, cottages, villas & campsites in Naivasha, Kenya. Secure M-Pesa payments. Verified listings. Instant confirmation.";
-const DEFAULT_IMAGE = "https://staynaivasha.co.ke/icons/icon-512.png";
+const SITE_NAME    = "Avistay";
+const DEFAULT_DESC = "Book holiday homes, cottages, villas & campsites in Naivasha, Kenya. Secure M-Pesa and card payments. Verified listings. Instant confirmation.";
+const DEFAULT_IMAGE = "https://avistay.com/icons/icon-512.png";
 
 function setMeta(attr: string, key: string, value: string) {
   let el = document.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"]`);
@@ -53,7 +53,7 @@ export function useSEO({ title, description, image, url, type = "website", jsonL
     const fullTitle = `${title} | ${SITE_NAME}`;
     const desc      = description ?? DEFAULT_DESC;
     const img       = image       ?? DEFAULT_IMAGE;
-    const canonical = url ? `https://staynaivasha.co.ke${url}` : window.location.href;
+    const canonical = url ? `https://avistay.com${url}` : window.location.href;
 
     document.title = fullTitle;
 
@@ -84,7 +84,7 @@ export function useSEO({ title, description, image, url, type = "website", jsonL
     else        removeJsonLd();
 
     return () => {
-      document.title = `${SITE_NAME} — Holiday Homes & Cottages in Naivasha, Kenya`;
+      document.title = `${SITE_NAME} | Holiday Homes & Cottages in Naivasha, Kenya`;
       removeJsonLd();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps

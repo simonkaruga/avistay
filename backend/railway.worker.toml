@@ -1,0 +1,12 @@
+# Second Railway service from the same repo: background jobs.
+# In Railway: New Service → same GitHub repo → Settings → Config-as-code path:
+#   backend/railway.worker.toml
+# Runs ONE process with the scheduler (--beat) built in. Keep this service at
+# exactly 1 replica, or scheduled jobs (payouts, deposit returns) run twice.
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "celery -A app.workers.celery_app worker --beat --loglevel=info --concurrency=2"
+restartPolicyType = "always"

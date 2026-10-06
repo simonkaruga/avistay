@@ -7,7 +7,9 @@ router = APIRouter(tags=["ws"])
 _connections: dict[str, set[WebSocket]] = defaultdict(set)
 
 
-@router.websocket("/ws/property/{property_id}")
+# The socket endpoint is not mounted (main.py): nothing uses it, and it accepted
+# unlimited anonymous connections. broadcast_booking stays a harmless no-op
+# until a live calendar is built with limits.
 async def property_calendar_ws(websocket: WebSocket, property_id: str):
     await websocket.accept()
     _connections[property_id].add(websocket)

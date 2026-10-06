@@ -1,0 +1,110 @@
+name: Mobile apps
+
+# Builds store-ready apps. Run manually (Actions → Mobile apps → Run workflow)
+# or push a tag like `app-v1.2.0`. See docs/MOBILE_RELEASE.md for the secrets.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version shown in the stores (e.g. 1.0.0)"
+        required: true
+        default: "1.0.0"
+      upload:
+        description: "Upload to Play internal testing / TestFlight"
+        type: boolean
+        default: true
+  push:
+    tags: ["app-v*"]
+
+env:
+  VERSION: ${{ inputs.version || github.ref_name }}
+  VITE_API_URL: https://api.avistay.com
+
+jobs:
+  android:
+    name: Android (Google Play)
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: frontend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm, cache-dependency-path: frontend/package-lock.json }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - uses: android-actions/setup-android@v3
+
+      - run: npm ci
+      - run: npm test -- --run
+      - run: npm run build:app
+
+      - name: Restore upload keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/upload.jks"
+
+      - name: Build signed app bundle
+        working-directory: frontend/android
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/upload.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          ./gradlew bundleRelease \
+            -PversionCode=${{ github.run_number }} \
+            -PversionName="${VERSION#app-v}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avistay-android-${{ github.run_number }}
+          path: frontend/android/app/build/outputs/bundle/release/app-release.aab
+
+      - name: Upload to Play internal testing
+        if: ${{ inputs.upload != false }}
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.avistay.app
+          releaseFiles: frontend/android/app/build/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed
+
+  ios:
+    name: iOS (App Store)
+    runs-on: macos-15
+    defaults: { run: { working-directory: frontend } }
+    env:
+      ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm, cache-dependency-path: frontend/package-lock.json }
+
+      - run: npm ci
+      - run: npm run build:app
+
+      - name: App Store Connect API key
+        run: |
+          mkdir -p "$RUNNER_TEMP/keys"
+          echo "${{ secrets.APP_STORE_CONNECT_KEY_P8 }}" > "$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8"
+
+      # Xcode cloud-managed signing: certificates and profiles are created on
+      # demand with the API key — no certificates to store in GitHub.
+      - name: Archive
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" archive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} MARKETING_VERSION="${VERSION#app-v}"
+
+      - name: Export and upload to TestFlight
+        if: ${{ inputs.upload != false }}
+        run: |
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist ios/App/ExportOptions.plist -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"

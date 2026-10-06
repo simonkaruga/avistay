@@ -1,49 +1,57 @@
 import { useNavigate } from "react-router-dom";
 
+import { ArrowLeft } from "lucide-react";
+import { useProtectionWindow, useSite } from "../components/SiteNotice";
+
+// Live values from Admin → Settings, usable inside the static text below.
+const Fee = () => <>KES {useSite().serviceFee.toLocaleString()}</>;
+const Levy = () => <>{useSite().levyPct}%</>;
+const PayoutWindow = () => <>{useProtectionWindow()}</>;
+const DepositDays = () => <>{useSite().depositDays}</>;
 const CONTENT: Record<string, { title: string; body: React.ReactNode }> = {
   terms: {
     title: "Terms of Service",
     body: (
-      <div className="space-y-5 text-sm text-[var(--text-muted)] leading-relaxed">
-        <p>By using StayNaivasha you agree to the following terms. Please read them carefully.</p>
+      <div className="space-y-5 text-sm text-(--text-muted) leading-relaxed">
+        <p>By using Avistay you agree to the following terms. Please read them carefully.</p>
 
         <section className="space-y-2">
-          <h2 className="font-semibold text-[var(--text-primary)]">1. Bookings</h2>
-          <p>All bookings are confirmed only after successful M-Pesa payment. The platform acts as a payment intermediary via escrow — funds are held until guest check-in is confirmed by the property owner.</p>
+          <h2 className="font-semibold text-(--text-primary)">1. Bookings</h2>
+          <p>All bookings are confirmed only after successful payment by M-Pesa or card. Card payments are processed by Paystack; Avistay never sees or stores card numbers. Paying by card adds a card fee, shown before you pay. The platform acts as a payment intermediary: the stay amount is held by Avistay and paid to the owner <PayoutWindow /> after the guest checks in, unless the guest reports a problem in that time. A refundable damage deposit, where shown at checkout, is returned to the guest <DepositDays /> after check-out unless the owner reports damage.</p>
         </section>
 
         <section className="space-y-2">
-          <h2 className="font-semibold text-[var(--text-primary)]">2. Guest Conduct</h2>
-          <p>Guests are expected to respect the property and follow house rules provided by the owner. Any damage to the property may result in additional charges.</p>
+          <h2 className="font-semibold text-(--text-primary)">2. Guest Conduct</h2>
+          <p>Guests are expected to respect the property and follow house rules provided by the owner. If the owner reports damage with evidence and Avistay upholds the claim, the cost is paid from the guest's damage deposit.</p>
         </section>
 
         <section className="space-y-2">
-          <h2 className="font-semibold text-[var(--text-primary)]">3. Platform Fees</h2>
-          <p>A KES 300 convenience fee applies per booking. A 2% tourism levy is collected in accordance with Kenyan law. These are included in the total shown at checkout.</p>
+          <h2 className="font-semibold text-(--text-primary)">3. Platform Fees</h2>
+          <p>A <Fee /> service fee applies per booking. A <Levy /> tourism levy is collected in accordance with Kenyan law. These are included in the total shown at checkout.</p>
         </section>
 
         <section className="space-y-2">
-          <h2 className="font-semibold text-[var(--text-primary)]">4. Liability</h2>
-          <p>StayNaivasha is a marketplace connecting guests with property owners. We are not liable for disputes between guests and owners beyond the escrow protection provided.</p>
+          <h2 className="font-semibold text-(--text-primary)">4. Liability</h2>
+          <p>Avistay is a marketplace connecting guests with property owners. Guests and owners can report problems with a booking in the app; Avistay reviews the evidence from both sides and decides how held funds are released. We are not liable for disputes between guests and owners beyond the funds we hold for that booking.</p>
         </section>
 
         <section className="space-y-2">
-          <h2 className="font-semibold text-[var(--text-primary)]">5. Changes</h2>
+          <h2 className="font-semibold text-(--text-primary)">5. Changes</h2>
           <p>We may update these terms at any time. Continued use of the platform constitutes acceptance of any revised terms.</p>
         </section>
 
-        <p className="text-xs">Last updated: January 2025</p>
+        <p className="text-xs">Last updated: October 2026</p>
       </div>
     ),
   },
   privacy: {
     title: "Privacy Policy",
     body: (
-      <div className="space-y-5 text-sm text-[var(--text-muted)] leading-relaxed">
-        <p>StayNaivasha collects minimal data necessary to provide the booking service.</p>
+      <div className="space-y-5 text-sm text-(--text-muted) leading-relaxed">
+        <p>Avistay collects minimal data necessary to provide the booking service.</p>
 
         <section className="space-y-2">
-          <h2 className="font-semibold text-[var(--text-primary)]">Data We Collect</h2>
+          <h2 className="font-semibold text-(--text-primary)">Data We Collect</h2>
           <ul className="list-disc pl-4 space-y-1">
             <li>Phone number (for authentication via OTP)</li>
             <li>Booking details (dates, property, payment reference)</li>
@@ -52,17 +60,17 @@ const CONTENT: Record<string, { title: string; body: React.ReactNode }> = {
         </section>
 
         <section className="space-y-2">
-          <h2 className="font-semibold text-[var(--text-primary)]">How We Use It</h2>
+          <h2 className="font-semibold text-(--text-primary)">How We Use It</h2>
           <p>Your data is used solely to process bookings, send booking confirmations, and communicate about your stay. We do not sell your data to third parties.</p>
         </section>
 
         <section className="space-y-2">
-          <h2 className="font-semibold text-[var(--text-primary)]">M-Pesa Payments</h2>
-          <p>Payment processing is handled by Safaricom M-Pesa. We store only the transaction reference number. Your PIN is never seen or stored by us.</p>
+          <h2 className="font-semibold text-(--text-primary)">Payments</h2>
+          <p>M-Pesa payments are processed by Safaricom and card payments by Paystack. We store only the transaction reference number. Your M-Pesa PIN and card number are never seen or stored by us.</p>
         </section>
 
         <section className="space-y-2">
-          <h2 className="font-semibold text-[var(--text-primary)]">Data Retention</h2>
+          <h2 className="font-semibold text-(--text-primary)">Data Retention</h2>
           <p>Booking records are retained for 7 years as required by Kenyan tax law. You may request deletion of your account by contacting support.</p>
         </section>
 
@@ -73,38 +81,50 @@ const CONTENT: Record<string, { title: string; body: React.ReactNode }> = {
   cancellation: {
     title: "Cancellation Policy",
     body: (
-      <div className="space-y-5 text-sm text-[var(--text-muted)] leading-relaxed">
-        <p>We understand plans change. Here's how refunds work:</p>
+      <div className="space-y-5 text-sm text-(--text-muted) leading-relaxed">
+        <p>Each home has one of three cancellation policies, chosen by the owner. The policy is shown on the
+          listing and again before you pay, with the exact date free cancellation ends.</p>
 
         <div className="space-y-3">
           {[
-            { when: "More than 48 hours before check-in", refund: "100% refund", color: "text-[var(--color-teal)]", bg: "bg-[var(--color-teal)]/8" },
-            { when: "24–48 hours before check-in", refund: "50% refund", color: "text-amber-600", bg: "bg-amber-50" },
-            { when: "Less than 24 hours before check-in", refund: "No refund", color: "text-red-500", bg: "bg-red-50" },
+            { name: "Flexible", rule: "Full refund if you cancel at least 1 day before check-in." },
+            { name: "Moderate", rule: "Full refund if you cancel at least 5 days before check-in." },
+            { name: "Strict",   rule: "50% refund if you cancel at least 7 days before check-in." },
           ].map(r => (
-            <div key={r.when} className={`${r.bg} rounded-2xl p-4 flex items-center justify-between`}>
-              <span className="text-[var(--text-primary)] font-medium text-sm">{r.when}</span>
-              <span className={`font-bold text-sm ${r.color}`}>{r.refund}</span>
+            <div key={r.name} className="bg-(--bg-surface) rounded-2xl p-4">
+              <p className="text-(--text-primary) font-semibold text-sm">{r.name}</p>
+              <p className="text-sm mt-0.5">{r.rule} After that, the stay is non-refundable.</p>
             </div>
           ))}
         </div>
 
         <section className="space-y-2">
-          <h2 className="font-semibold text-[var(--text-primary)]">How to Cancel</h2>
-          <p>Go to the Trips tab, find your booking, and tap Cancel. Eligible refunds are processed via M-Pesa within 3–5 business days.</p>
+          <h2 className="font-semibold text-(--text-primary)">What is refunded</h2>
+          <ul className="list-disc pl-4 space-y-1">
+            <li>The refundable damage deposit is always returned in full when you cancel.</li>
+            <li>The stay (nightly price and <Levy /> tourism levy) is refunded at the percentage above.</li>
+            <li>The <Fee /> service fee is refunded only when you get a full refund.</li>
+            <li>If you paid by card, the card fee is not refunded when you cancel. Refunds go back to the same card and usually appear within 5 to 10 working days.</li>
+          </ul>
         </section>
 
         <section className="space-y-2">
-          <h2 className="font-semibold text-[var(--text-primary)]">Owner Cancellations</h2>
-          <p>If an owner cancels your booking for any reason, you will receive a full 100% refund regardless of timing.</p>
+          <h2 className="font-semibold text-(--text-primary)">How to cancel</h2>
+          <p>Open Trips, find your booking and tap Cancel booking. You'll see exactly how much comes back before you confirm. Refunds are sent to the M-Pesa number you paid from.</p>
         </section>
 
         <section className="space-y-2">
-          <h2 className="font-semibold text-[var(--text-primary)]">Platform Fees</h2>
-          <p>The KES 300 convenience fee is non-refundable. The 2% tourism levy is refunded proportionally with the booking amount.</p>
+          <h2 className="font-semibold text-(--text-primary)">If the owner cancels</h2>
+          <p>You receive a 100% refund, including all fees and your deposit, whatever the timing.</p>
         </section>
 
-        <p className="text-xs">Last updated: January 2025</p>
+        <section className="space-y-2">
+          <h2 className="font-semibold text-(--text-primary)">Problems during your stay</h2>
+          <p>If you can't get in, or the home isn't as described, report it in the app from your check-in day.
+            While we review it the owner is not paid, and we can refund you from the funds we hold.</p>
+        </section>
+
+        <p className="text-xs">Last updated: October 2026</p>
       </div>
     ),
   },
@@ -115,15 +135,13 @@ export default function Legal({ page }: { page: "terms" | "privacy" | "cancellat
   const { title, body } = CONTENT[page];
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] pb-24">
-      <div className="sticky top-0 z-40 flex items-center gap-3 px-4 py-4 bg-[var(--bg-surface)] border-b border-[var(--border)]">
+    <div className="min-h-screen bg-(--bg-primary) pb-24">
+      <div className="sticky top-0 z-40 flex items-center gap-3 px-4 py-4 bg-(--bg-surface) border-b border-(--border)">
         <button onClick={() => navigate(-1)}
-          className="w-9 h-9 rounded-full bg-[var(--bg-primary)] flex items-center justify-center flex-shrink-0">
-          <svg viewBox="0 0 24 24" className="w-5 h-5 text-[var(--text-primary)]" fill="none" stroke="currentColor" strokeWidth={2.5}>
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
+          className="w-9 h-9 rounded-full bg-(--bg-primary) flex items-center justify-center shrink-0">
+          <ArrowLeft className="w-5 h-5 text-(--text-primary)" strokeWidth={2.5} aria-hidden="true" />
         </button>
-        <h1 className="font-semibold text-[var(--text-primary)]">{title}</h1>
+        <h1 className="font-semibold text-(--text-primary)">{title}</h1>
       </div>
       <div className="px-5 pt-5 max-w-lg mx-auto">
         {body}

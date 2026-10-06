@@ -1,78 +1,88 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { imgSrc } from "../utils/image";
 import { useSEO } from "../utils/seo";
+import { areaLabel } from "../utils/areas";
 import { toggleSaved, isSaved } from "./Saved";
 import { PropertyCardData } from "../components/PropertyCard";
 import TypeIcon from "../components/TypeIcon";
+import RatingBadge, { ratingWord } from "../components/RatingBadge";
 import LeafletMap, { MapPin } from "../components/LeafletMap";
 
+import { Award, ArrowLeft, ArrowUpDown, BadgeCheck, CalendarDays, ChevronRight, Heart, LayoutGrid, ListFilter, Map as MapIcon, MapPin as PinIcon, Search as SearchIcon, SearchX } from "lucide-react";
+import { api } from "../utils/api";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type SortKey = "recommended" | "price_asc" | "price_desc" | "rating";
 
-function SearchCard({ p }: { p: PropertyCardData }) {
+
+/** Search result: photo left, details middle, rating + price right. */
+function SearchCard({ p, query }: { p: PropertyCardData; query?: string }) {
   const [saved, setSaved] = useState(() => isSaved(p.id));
   const isGuestFavourite = (p.avg_rating ?? 0) >= 4.8 && (p.review_count ?? 0) >= 5;
+  const img = p.primary_image || p.images?.[0];
+  const href = `/property/${p.id}${query ? `?${query}` : ""}`;
   return (
-    <Link to={`/property/${p.id}`}
-      className="flex gap-0 bg-[var(--bg-surface)] rounded-2xl overflow-hidden active:scale-[.98] transition-transform card">
+    <Link to={href}
+      className="group flex bg-(--bg-surface) border border-(--border) rounded-2xl overflow-hidden hover:shadow-md transition-shadow">
       {/* Photo */}
-      <div className="relative w-32 flex-shrink-0" style={{ height: 112 }}>
-        {(p.primary_image || p.images?.[0])
-          ? <img src={imgSrc(p.primary_image || p.images![0], 260)} alt={p.title} className="w-full h-full object-cover" loading="lazy" />
-          : <div className="w-full h-full bg-gradient-to-br from-[var(--color-forest)] to-[var(--color-teal)] flex items-center justify-center">
-              <TypeIcon type={p.type} className="w-8 h-8 text-white/30" />
-            </div>
-        }
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent to-black/10" />
-        {isGuestFavourite && (
-          <span className="absolute top-1.5 left-1.5 bg-white text-[var(--color-nearblack)] text-[13px] font-bold px-1.5 py-0.5 rounded-full shadow-sm">❤️ Fave</span>
-        )}
-        {p.verified_tier >= 1 && (
-          <span className="absolute top-1.5 right-1.5 bg-[var(--color-teal)] text-white text-[13px] font-bold px-1.5 py-0.5 rounded-full">Trusted</span>
-        )}
-        {p.avg_rating && (
-          <span className="absolute bottom-1.5 left-1.5 bg-black/60 backdrop-blur-sm text-white text-[13px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-            <span className="text-amber-400">★</span>{p.avg_rating.toFixed(1)}
-            {p.review_count ? <span className="text-white/60 font-normal text-[12px]">({p.review_count})</span> : null}
-          </span>
-        )}
+      <div className="relative w-[38%] max-w-[150px] md:w-60 md:max-w-none shrink-0 min-h-[150px] md:h-60 md:m-3 md:rounded-xl overflow-hidden bg-(--bg-primary)">
+        {img
+          ? <img src={imgSrc(img, 480)} alt={p.title} loading="lazy" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+          : <div className="absolute inset-0 bg-linear-to-br from-forest to-teal flex items-center justify-center"><TypeIcon type={p.type} className="w-10 h-10 text-white/30" /></div>}
+        <button onClick={e => { e.preventDefault(); e.stopPropagation(); setSaved(toggleSaved(p.id)); }}
+          aria-label={saved ? "Remove from saved" : "Save"} aria-pressed={saved}
+          className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center shadow-sm">
+          <Heart className="w-4 h-4" fill={saved ? "#ef4444" : "none"} stroke={saved ? "#ef4444" : "#333"} aria-hidden="true" />
+        </button>
       </div>
 
       {/* Details */}
-      <div className="flex-1 px-3 py-3 min-w-0 flex flex-col justify-between">
-        <div>
-          <div className="flex items-start justify-between gap-1">
-            <div className="min-w-0">
-              <span className="inline-flex items-center gap-1 text-[12px] text-[var(--text-muted)] capitalize mb-0.5">
-                <TypeIcon type={p.type} className="w-3 h-3" />{p.type}
+      <div className="flex-1 min-w-0 p-3 md:p-4 md:pl-1 flex flex-col md:flex-row md:gap-4">
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-(--text-primary) leading-snug line-clamp-2 md:text-lg group-hover:text-forest">{p.title}</h3>
+          <p className="flex items-center gap-1 text-xs md:text-sm text-(--text-muted) mt-1">
+            <PinIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            {areaLabel(p.area) ? `${areaLabel(p.area)}, ` : ""}Naivasha
+          </p>
+          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+            <span className="inline-flex items-center gap-1 text-xs text-(--text-primary) border border-(--border) rounded-md px-1.5 py-0.5 capitalize">
+              <TypeIcon type={p.type} className="w-3.5 h-3.5" /> Entire {p.type}
+            </span>
+            {p.verified_tier >= 1 && (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-forest bg-forest/10 rounded-md px-1.5 py-0.5">
+                <BadgeCheck className="w-3.5 h-3.5" aria-hidden="true" /> Verified
               </span>
-              <h3 className="text-sm font-semibold text-[var(--text-primary)] leading-snug line-clamp-2">{p.title}</h3>
-            </div>
-            <button
-              onClick={e => { e.preventDefault(); e.stopPropagation(); setSaved(toggleSaved(p.id)); }}
-              aria-label="Save" className="flex-shrink-0">
-              <svg viewBox="0 0 24 24" className="w-4 h-4" fill={saved ? "#ef4444" : "none"} stroke={saved ? "#ef4444" : "var(--text-muted)"} strokeWidth={2}>
-                <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 000-7.78z" />
-              </svg>
-            </button>
+            )}
+            {isGuestFavourite && (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-clay bg-clay/10 rounded-md px-1.5 py-0.5">
+                <Award className="w-3 h-3" aria-hidden="true" /> Top rated
+              </span>
+            )}
           </div>
+          {(p.min_nights ?? 1) > 1 && <p className="hidden md:block text-xs text-(--text-muted) mt-2">{p.min_nights}-night minimum stay</p>}
         </div>
 
-        <div className="flex items-end justify-between">
-          <div>
-            {!p.avg_rating && (
-              <span className="text-[12px] bg-[var(--color-mint)]/15 text-[var(--color-teal)] font-semibold px-1.5 py-0.5 rounded-full">New</span>
-            )}
-            {p.review_count && p.review_count > 0 && (
-              <span className="text-[12px] text-[var(--text-muted)]">{p.review_count} review{p.review_count !== 1 ? "s" : ""}</span>
-            )}
-          </div>
-          <div className="text-right">
-            <p className="text-sm font-bold text-[var(--text-primary)]">KES {p.price_per_night.toLocaleString()}</p>
-            <p className="text-[13px] text-[var(--text-muted)]">/night</p>
+        {/* Rating + price */}
+        <div className="flex md:flex-col items-end md:justify-between gap-2 mt-3 md:mt-0 md:w-44 shrink-0 md:text-right">
+          {p.avg_rating ? (
+            <div className="flex items-center gap-2 order-2 md:order-1">
+              <span className="hidden md:block text-right">
+                <span className="block text-sm font-semibold text-(--text-primary)">{ratingWord(p.avg_rating)}</span>
+                <span className="block text-xs text-(--text-muted)">{p.review_count ?? 0} review{p.review_count === 1 ? "" : "s"}</span>
+              </span>
+              <RatingBadge value={p.avg_rating} />
+            </div>
+          ) : (
+            <span className="order-2 md:order-1 text-xs font-semibold text-teal bg-mint/15 px-2 py-0.5 rounded-full">New</span>
+          )}
+          <div className="order-1 md:order-2 flex-1 md:flex-none">
+            <p className="text-base md:text-xl font-bold text-(--text-primary) whitespace-nowrap">KES {p.price_per_night.toLocaleString()}</p>
+            <p className="text-xs text-(--text-muted)">per night</p>
+            <span className="hidden md:inline-flex items-center justify-center gap-1 mt-2 bg-clay group-hover:bg-(--color-clay-dark) text-white text-sm font-semibold px-4 py-2 rounded-full">
+              View stay <ChevronRight className="w-4 h-4" aria-hidden="true" />
+            </span>
           </div>
         </div>
       </div>
@@ -101,25 +111,25 @@ function FilterSheet({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-[var(--bg-surface)] rounded-t-3xl px-5 pt-4 pb-8 space-y-5"
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-xs" onClick={onClose} />
+      <div className="relative bg-(--bg-surface) rounded-t-3xl px-5 pt-4 pb-8 space-y-5"
         style={{ animation: "fade-up 0.2s ease-out both" }}>
         {/* Handle */}
-        <div className="w-10 h-1 bg-[var(--border)] rounded-full mx-auto" />
+        <div className="w-10 h-1 bg-(--border) rounded-full mx-auto" />
 
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-[var(--text-primary)]">Filters</h2>
-          <button onClick={onClose} className="text-sm text-[var(--color-teal)] font-medium">Done</button>
+          <h2 className="font-semibold text-(--text-primary)">Filters</h2>
+          <button onClick={onClose} className="text-sm text-teal font-medium">Done</button>
         </div>
 
         {/* Keyword / amenity search */}
         <div className="space-y-2">
-          <p className="text-sm font-medium text-[var(--text-primary)]">Search amenities</p>
+          <p className="text-sm font-medium text-(--text-primary)">Search amenities</p>
           <input
             value={amenity}
             onChange={e => onAmenity(e.target.value)}
             placeholder="e.g. pool, wifi, conference, lake view…"
-            className="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-teal)]"
+            className="w-full bg-(--bg-primary) border border-(--border) rounded-xl px-3 py-2.5 text-sm text-(--text-primary) outline-hidden focus:border-teal"
           />
           <div className="flex flex-wrap gap-1.5">
             {AMENITY_CHIPS.map(chip => (
@@ -127,8 +137,8 @@ function FilterSheet({
                 onClick={() => onAmenity(amenity === chip.toLowerCase() ? "" : chip.toLowerCase())}
                 className={`px-2.5 py-1 rounded-full text-[13px] font-medium border transition-colors ${
                   amenity === chip.toLowerCase()
-                    ? "bg-[var(--color-forest)] text-white border-[var(--color-forest)]"
-                    : "border-[var(--border)] text-[var(--text-muted)]"
+                    ? "bg-forest text-white border-forest"
+                    : "border-(--border) text-(--text-muted)"
                 }`}>
                 {chip}
               </button>
@@ -139,27 +149,27 @@ function FilterSheet({
         {/* Price range slider */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-[var(--text-primary)]">Price per night (KES)</p>
-            <p className="text-xs font-semibold text-[var(--color-teal)]">
-              {minPrice ? `${Number(minPrice).toLocaleString()}` : "0"} – {maxPrice ? `${Number(maxPrice).toLocaleString()}` : "100,000"}
+            <p className="text-sm font-medium text-(--text-primary)">Price per night (KES)</p>
+            <p className="text-xs font-semibold text-teal">
+              {minPrice ? `${Number(minPrice).toLocaleString()}` : "0"} to {maxPrice ? `${Number(maxPrice).toLocaleString()}` : "100,000"}
             </p>
           </div>
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="text-[13px] text-[var(--text-muted)] uppercase tracking-wide">Min</label>
+              <label className="text-[13px] text-(--text-muted) uppercase tracking-wide">Min</label>
               <input type="range" min={0} max={50000} step={500}
                 value={minPrice || 0}
                 onChange={e => onMinPrice(e.target.value === "0" ? "" : e.target.value)}
-                className="w-full mt-2 accent-[var(--color-forest)]" />
-              <p className="text-[13px] text-[var(--text-muted)] mt-1">KES {Number(minPrice || 0).toLocaleString()}</p>
+                className="w-full mt-2 accent-forest" />
+              <p className="text-[13px] text-(--text-muted) mt-1">KES {Number(minPrice || 0).toLocaleString()}</p>
             </div>
             <div className="flex-1">
-              <label className="text-[13px] text-[var(--text-muted)] uppercase tracking-wide">Max</label>
+              <label className="text-[13px] text-(--text-muted) uppercase tracking-wide">Max</label>
               <input type="range" min={0} max={100000} step={500}
                 value={maxPrice || 100000}
                 onChange={e => onMaxPrice(e.target.value === "100000" ? "" : e.target.value)}
-                className="w-full mt-2 accent-[var(--color-forest)]" />
-              <p className="text-[13px] text-[var(--text-muted)] mt-1">KES {Number(maxPrice || 100000).toLocaleString()}</p>
+                className="w-full mt-2 accent-forest" />
+              <p className="text-[13px] text-(--text-muted) mt-1">KES {Number(maxPrice || 100000).toLocaleString()}</p>
             </div>
           </div>
           {/* Quick price presets */}
@@ -167,7 +177,7 @@ function FilterSheet({
             {[["Budget",0,5000],["Mid",5000,15000],["Luxury",15000,0]].map(([label, min, max]) => (
               <button key={label as string}
                 onClick={() => { onMinPrice(min ? String(min) : ""); onMaxPrice(max ? String(max) : ""); }}
-                className="px-3 py-1 rounded-full text-[13px] font-medium border border-[var(--border)] text-[var(--text-muted)]">
+                className="px-3 py-1 rounded-full text-[13px] font-medium border border-(--border) text-(--text-muted)">
                 {label as string}
               </button>
             ))}
@@ -176,14 +186,14 @@ function FilterSheet({
 
         {/* Property types */}
         <div className="space-y-2">
-          <p className="text-sm font-medium text-[var(--text-primary)]">Property type</p>
+          <p className="text-sm font-medium text-(--text-primary)">Property type</p>
           <div className="grid grid-cols-3 gap-2">
             {ALL_TYPES.map(t => (
               <button key={t} onClick={() => toggleType(t)}
                 className={`py-2.5 rounded-xl text-xs font-medium border capitalize transition-colors ${
                   types.includes(t)
-                    ? "bg-[var(--color-forest)] text-white border-[var(--color-forest)]"
-                    : "border-[var(--border)] text-[var(--text-muted)]"
+                    ? "bg-forest text-white border-forest"
+                    : "border-(--border) text-(--text-muted)"
                 }`}>
                 {t}
               </button>
@@ -192,7 +202,7 @@ function FilterSheet({
         </div>
 
         <button onClick={() => { onMinPrice(""); onMaxPrice(""); onTypes([]); onAmenity(""); }}
-          className="w-full border border-[var(--border)] text-[var(--text-muted)] text-sm py-3 rounded-xl">
+          className="w-full border border-(--border) text-(--text-muted) text-sm py-3 rounded-xl">
           Clear all filters
         </button>
       </div>
@@ -207,20 +217,21 @@ export default function Search() {
   const [sort,         setSort]         = useState<SortKey>("recommended");
   const [minPrice,     setMinPrice]     = useState("");
   const [maxPrice,     setMaxPrice]     = useState("");
-  const [typeFilters,  setTypeFilters]  = useState<string[]>([]);
+  const [typeFilters,  setTypeFilters]  = useState<string[]>(() => searchParams.get("type") ? [searchParams.get("type")!] : []);
   const [amenityFilter, setAmenityFilter] = useState("");
   const [showFilters,  setShowFilters]  = useState(false);
   const [showSort,     setShowSort]     = useState(false);
   const [viewMode,     setViewMode]     = useState<"list"|"map">("list");
 
   const location = searchParams.get("location") ?? "";
+  const area     = searchParams.get("area") ?? "";
   const checkIn  = searchParams.get("check_in") ?? "";
   const checkOut = searchParams.get("check_out") ?? "";
   const adults   = Number(searchParams.get("adults")   ?? searchParams.get("guests") ?? "1");
   const children = Number(searchParams.get("children") ?? "0");
-  const rooms    = Number(searchParams.get("rooms")    ?? "1");
   const guests   = String(adults + children);
   const [guestsLocal, setGuestsLocal] = useState(guests);
+  useEffect(() => { setGuestsLocal(guests); }, [guests]);   // a new search resets the guest filter
 
   useSEO({
     title: location ? `Homes in Naivasha · "${location}"` : "Search Naivasha Homes",
@@ -228,12 +239,14 @@ export default function Search() {
   });
 
   const { data: raw = [], isLoading, isError } = useQuery<PropertyCardData[]>({
-    queryKey: ["properties", "search", checkIn, checkOut],
+    queryKey: ["properties", "search", checkIn, checkOut, location, area],
     queryFn: async () => {
-      const p = new URLSearchParams();
+      const p = new URLSearchParams({ limit: "100" });
       if (checkIn)  p.set("check_in",  checkIn);
       if (checkOut) p.set("check_out", checkOut);
-      const r = await fetch(`/api/properties/?${p.toString()}`);
+      if (location) p.set("location", location);   // matched on the server: name, description, directions, area
+      if (area)     p.set("area", area);
+      const r = await api(`/properties/?${p.toString()}`);
       if (!r.ok) throw new Error("Failed");
       return r.json();
     },
@@ -242,7 +255,6 @@ export default function Search() {
 
   const results = useMemo(() => {
     let list = [...raw];
-    if (location) list = list.filter(p => p.title.toLowerCase().includes(location.toLowerCase()) || p.type.toLowerCase().includes(location.toLowerCase()));
     if (amenityFilter) {
       const kw = amenityFilter.toLowerCase();
       list = list.filter(p =>
@@ -262,7 +274,7 @@ export default function Search() {
       case "rating":     return list.sort((a, b) => (b.avg_rating ?? 0) - (a.avg_rating ?? 0));
       default:           return list;
     }
-  }, [raw, location, minPrice, maxPrice, typeFilters, sort, guestsLocal, amenityFilter]);
+  }, [raw, minPrice, maxPrice, typeFilters, sort, guestsLocal, amenityFilter, adults, children]);
 
   const activeFilterCount = (minPrice || maxPrice ? 1 : 0) + typeFilters.length + (amenityFilter ? 1 : 0);
 
@@ -274,63 +286,57 @@ export default function Search() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] pt-20 pb-20">
+    <div className="min-h-screen bg-(--bg-primary) pt-header pb-20">
 
       {/* ── Header ── */}
-      <div className="sticky top-0 z-40 bg-[var(--bg-surface)] border-b border-[var(--border)]">
+      <div className="sticky top-0 z-40 bg-(--bg-surface) border-b border-(--border)">
         {/* Search bar row */}
         <div className="flex items-center gap-3 px-4 py-3">
           <button onClick={() => window.history.back()}
-            className="w-9 h-9 rounded-full bg-[var(--bg-primary)] flex items-center justify-center flex-shrink-0">
-            <svg viewBox="0 0 24 24" className="w-5 h-5 text-[var(--text-primary)]" fill="none" stroke="currentColor" strokeWidth={2.5}>
-              <path d="M19 12H5M12 19l-7-7 7-7" />
-            </svg>
+            className="w-9 h-9 rounded-full bg-(--bg-primary) flex items-center justify-center shrink-0">
+            <ArrowLeft className="w-5 h-5 text-(--text-primary)" strokeWidth={2.5} aria-hidden="true" />
           </button>
-          <button className="flex-1 flex items-center gap-2 bg-[var(--bg-primary)] rounded-xl px-3 py-2.5"
+          <button className="flex-1 flex items-center gap-2 bg-(--bg-primary) rounded-xl px-3 py-2.5"
             onClick={() => setSearchParams(p => p)}>
-            <svg viewBox="0 0 24 24" className="w-4 h-4 text-[var(--text-muted)] flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2}>
-              <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
-            </svg>
-            <span className="text-sm text-[var(--text-primary)] font-medium truncate">
+            <SearchIcon className="w-4 h-4 text-(--text-muted) shrink-0" aria-hidden="true" />
+            <span className="text-sm text-(--text-primary) font-medium truncate">
               {location || "Naivasha"}
             </span>
             {checkIn && checkOut && (
-              <span className="text-xs text-[var(--text-muted)] flex-shrink-0">{checkIn} – {checkOut}</span>
+              <span className="text-xs text-(--text-muted) shrink-0">{checkIn} to {checkOut}</span>
             )}
-            {(adults > 1 || children > 0 || rooms > 1) && (
-              <span className="text-xs text-[var(--text-muted)] flex-shrink-0">
-                {adults}A · {children}C · {rooms}R
+            {(adults > 1 || children > 0) && (
+              <span className="text-xs text-(--text-muted) shrink-0">
+                {adults}A · {children}C
               </span>
             )}
           </button>
 
           {/* Guests stepper */}
-          <div className="flex items-center gap-1.5 bg-[var(--bg-primary)] rounded-xl px-2.5 py-1.5 flex-shrink-0">
+          <div className="flex items-center gap-1.5 bg-(--bg-primary) rounded-xl px-2.5 py-1.5 shrink-0">
             <button type="button"
               onClick={() => { const v = String(Math.max(1, Number(guestsLocal) - 1)); setGuestsLocal(v); setSearchParams(p => { p.set("guests", v); return p; }); }}
-              className="w-5 h-5 rounded-full border border-[var(--border)] flex items-center justify-center text-[var(--text-muted)] text-xs font-bold">−</button>
-            <span className="text-xs font-semibold text-[var(--text-primary)] w-4 text-center">{guestsLocal}</span>
+              className="w-5 h-5 rounded-full border border-(--border) flex items-center justify-center text-(--text-muted) text-xs font-bold">−</button>
+            <span className="text-xs font-semibold text-(--text-primary) w-4 text-center">{guestsLocal}</span>
             <button type="button"
               onClick={() => { const v = String(Math.min(20, Number(guestsLocal) + 1)); setGuestsLocal(v); setSearchParams(p => { p.set("guests", v); return p; }); }}
-              className="w-5 h-5 rounded-full border border-[var(--border)] flex items-center justify-center text-[var(--text-muted)] text-xs font-bold">+</button>
+              className="w-5 h-5 rounded-full border border-(--border) flex items-center justify-center text-(--text-muted) text-xs font-bold">+</button>
           </div>
         </div>
 
         {/* Filter + Sort row */}
-        <div className="flex items-center gap-2 px-4 pb-2.5">
+        <div className="flex flex-wrap items-center gap-2 px-4 pb-2.5">
           {/* Filters button */}
           <button onClick={() => setShowFilters(true)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+            className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
               activeFilterCount > 0
-                ? "bg-[var(--color-forest)] text-white border-[var(--color-forest)]"
-                : "border-[var(--border)] text-[var(--text-muted)] bg-[var(--bg-surface)]"
+                ? "bg-forest text-white border-forest"
+                : "border-(--border) text-(--text-muted) bg-(--bg-surface)"
             }`}>
-            <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2}>
-              <path d="M3 6h18M7 12h10M10 18h4" />
-            </svg>
+            <ListFilter className="w-3.5 h-3.5" aria-hidden="true" />
             Filters
             {activeFilterCount > 0 && (
-              <span className="bg-white text-[var(--color-forest)] w-4 h-4 rounded-full text-[12px] font-bold flex items-center justify-center">
+              <span className="bg-white text-forest w-4 h-4 rounded-full text-[12px] font-bold flex items-center justify-center">
                 {activeFilterCount}
               </span>
             )}
@@ -339,20 +345,18 @@ export default function Search() {
           {/* Sort button */}
           <div className="relative">
             <button onClick={() => setShowSort(!showSort)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border border-[var(--border)] text-[var(--text-muted)] bg-[var(--bg-surface)]">
-              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2}>
-                <path d="M3 9l4-4 4 4M7 5v14M21 15l-4 4-4-4M17 19V5" />
-              </svg>
+              className="shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border border-(--border) text-(--text-muted) bg-(--bg-surface)">
+              <ArrowUpDown className="w-3.5 h-3.5" aria-hidden="true" />
               {SORT_LABELS[sort]}
             </button>
             {showSort && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowSort(false)} />
-                <div className="absolute left-0 top-full mt-1 bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl shadow-xl z-50 w-52 py-1 overflow-hidden">
+                <div className="absolute left-0 top-full mt-1 bg-(--bg-surface) border border-(--border) rounded-2xl shadow-xl z-50 w-52 py-1 overflow-hidden">
                   {(Object.keys(SORT_LABELS) as SortKey[]).map(k => (
                     <button key={k} onClick={() => { setSort(k); setShowSort(false); }}
                       className={`w-full text-left px-4 py-2.5 text-xs font-medium transition-colors ${
-                        sort === k ? "bg-[var(--color-forest)] text-white" : "text-[var(--text-primary)] hover:bg-[var(--bg-primary)]"
+                        sort === k ? "bg-forest text-white" : "text-(--text-primary) hover:bg-(--bg-primary)"
                       }`}>
                       {SORT_LABELS[k]}
                     </button>
@@ -364,17 +368,17 @@ export default function Search() {
 
           {/* View toggle list/map */}
           <button onClick={() => setViewMode(v => v === "list" ? "map" : "list")}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border border-[var(--border)] text-[var(--text-muted)] bg-[var(--bg-surface)] ml-auto flex-shrink-0">
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border border-(--border) text-(--text-muted) bg-(--bg-surface) ml-auto shrink-0">
             {viewMode === "list"
-              ? <><svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Map</>
-              : <><svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2}><path d="M9 3L3 6v15l6-3 6 3 6-3V3l-6 3-6-3z"/></svg>List</>
+              ? <><MapIcon className="w-3.5 h-3.5" aria-hidden="true" />Map</>
+              : <><LayoutGrid className="w-3.5 h-3.5" aria-hidden="true" />List</>
             }
           </button>
 
           {/* Active filter tags */}
           {typeFilters.map(t => (
             <button key={t} onClick={() => setTypeFilters(f => f.filter(x => x !== t))}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[13px] font-semibold bg-[var(--color-forest)]/15 text-[var(--color-teal)] border border-[var(--color-teal)]/30">
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[13px] font-semibold bg-forest/15 text-teal border border-teal/30">
               {t} ×
             </button>
           ))}
@@ -396,10 +400,10 @@ export default function Search() {
                   else { p.set("check_in", friStr); p.set("check_out", sunStr); }
                   return p;
                 })}
-                className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[13px] font-semibold border transition-colors ${
-                  isActive ? "bg-[var(--color-forest)] text-white border-[var(--color-forest)]" : "border-[var(--border)] text-[var(--text-muted)] bg-[var(--bg-surface)]"
+                className={`shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[13px] font-semibold border transition-colors ${
+                  isActive ? "bg-forest text-white border-forest" : "border-(--border) text-(--text-muted) bg-(--bg-surface)"
                 }`}>
-                🏖 Weekend
+                <CalendarDays className="w-3.5 h-3.5" aria-hidden="true" /> Weekend
               </button>
             );
           })()}
@@ -411,18 +415,18 @@ export default function Search() {
         {/* Result count + date context */}
         {!isLoading && !isError && (
           <div className="mb-3">
-            <p className="text-xs text-[var(--text-muted)]">
-              <span className="font-semibold text-[var(--text-primary)]">{results.length}</span>{" "}
+            <p className="text-xs text-(--text-muted)">
+              <span className="font-semibold text-(--text-primary)">{results.length}</span>{" "}
               {results.length === 1 ? "home" : "homes"} available
               {checkIn && checkOut ? (
-                <span className="text-[var(--color-teal)] font-medium">
-                  {" "}· {new Date(checkIn).toLocaleDateString("en-KE",{day:"numeric",month:"short"})} – {new Date(checkOut).toLocaleDateString("en-KE",{day:"numeric",month:"short"})}
+                <span className="text-teal font-medium">
+                  {" "}· {new Date(checkIn).toLocaleDateString("en-KE",{day:"numeric",month:"short"})} to {new Date(checkOut).toLocaleDateString("en-KE",{day:"numeric",month:"short"})}
                 </span>
               ) : " in Naivasha"}
               {location ? ` · "${location}"` : ""}
             </p>
             {checkIn && checkOut && (
-              <p className="text-[13px] text-[var(--text-muted)] mt-0.5">
+              <p className="text-[13px] text-(--text-muted) mt-0.5">
                 Homes with existing bookings on those dates are hidden
               </p>
             )}
@@ -433,11 +437,11 @@ export default function Search() {
         {isLoading && (
           <div className="space-y-3">
             {[1,2,3,4,5].map(i => (
-              <div key={i} className="flex gap-3 bg-[var(--bg-surface)] rounded-2xl overflow-hidden h-24 animate-pulse">
-                <div className="w-28 bg-[var(--bg-primary)]" />
+              <div key={i} className="flex gap-3 bg-(--bg-surface) rounded-2xl overflow-hidden h-24 animate-pulse">
+                <div className="w-28 bg-(--bg-primary)" />
                 <div className="flex-1 py-3 pr-3 space-y-2">
-                  <div className="h-3 bg-[var(--bg-primary)] rounded-full w-3/4" />
-                  <div className="h-3 bg-[var(--bg-primary)] rounded-full w-1/2" />
+                  <div className="h-3 bg-(--bg-primary) rounded-full w-3/4" />
+                  <div className="h-3 bg-(--bg-primary) rounded-full w-1/2" />
                 </div>
               </div>
             ))}
@@ -447,11 +451,11 @@ export default function Search() {
         {/* Error / empty */}
         {viewMode === "list" && !isLoading && (isError || results.length === 0) && (
           <div className="flex flex-col items-center py-20 text-center space-y-3">
-            <div className="w-14 h-14 rounded-full bg-[var(--bg-surface)] flex items-center justify-center text-2xl">🔍</div>
-            <p className="font-semibold text-[var(--text-primary)]">No homes found</p>
-            <p className="text-sm text-[var(--text-muted)] max-w-[200px]">Try different dates or remove some filters.</p>
+            <div className="w-14 h-14 rounded-full bg-(--bg-surface) flex items-center justify-center"><SearchX className="w-6 h-6 text-(--text-muted)" aria-hidden="true" /></div>
+            <p className="font-semibold text-(--text-primary)">No homes found</p>
+            <p className="text-sm text-(--text-muted) max-w-[200px]">Try different dates or remove some filters.</p>
             <button onClick={() => { setMinPrice(""); setMaxPrice(""); setTypeFilters([]); }}
-              className="text-[var(--color-teal)] text-sm font-medium underline">
+              className="text-teal text-sm font-medium underline">
               Clear filters
             </button>
           </div>
@@ -473,7 +477,7 @@ export default function Search() {
                 }));
               return <LeafletMap pins={pins} height={420} />;
             })()}
-            <p className="text-[13px] text-[var(--text-muted)] text-center mt-2">Tap a price pin to view the listing</p>
+            <p className="text-[13px] text-(--text-muted) text-center mt-2">Tap a price pin to view the listing</p>
           </>
         )}
 
@@ -482,7 +486,7 @@ export default function Search() {
           <div className="space-y-3">
             {results.map((p, i) => (
               <div key={p.id} style={{ animation: `fade-up 0.25s ease-out ${i * 0.04}s both` }}>
-                <SearchCard p={p} />
+                <SearchCard p={p} query={[checkIn && `check_in=${checkIn}`, checkOut && `check_out=${checkOut}`, `guests=${guests}`].filter(Boolean).join("&")} />
               </div>
             ))}
           </div>

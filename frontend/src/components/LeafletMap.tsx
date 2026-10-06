@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { loadLeaflet, OSM_ATTRIBUTION, OSM_TILES } from "../utils/leaflet";
 import type { Map as LMap, Marker } from "leaflet";
 
 export interface MapPin {
@@ -24,27 +25,10 @@ export default function LeafletMap({ pins, height = 340, single = false }: Props
   useEffect(() => {
     if (!containerRef.current || pins.length === 0) return;
 
-    import("leaflet").then(L => {
-      // Fix broken bundler icon paths
-      delete (L.Icon.Default.prototype as any)._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-        iconUrl:       "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-        shadowUrl:     "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-      });
-
-      if (!document.getElementById("leaflet-css")) {
-        const link = document.createElement("link");
-        link.id    = "leaflet-css";
-        link.rel   = "stylesheet";
-        link.href  = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-        document.head.appendChild(link);
-      }
-
+    loadLeaflet().then(L => {
       if (!mapRef.current) {
-        mapRef.current = L.map(containerRef.current!, { zoomControl: true, attributionControl: false });
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 })
-          .addTo(mapRef.current);
+        mapRef.current = L.map(containerRef.current!, { zoomControl: true });
+        L.tileLayer(OSM_TILES, { maxZoom: 19, attribution: OSM_ATTRIBUTION }).addTo(mapRef.current);
       }
 
       const map = mapRef.current;
@@ -57,7 +41,7 @@ export default function LeafletMap({ pins, height = 340, single = false }: Props
           : L.marker([pin.lat, pin.lng], {
               icon: L.divIcon({
                 className: "",
-                html: `<div style="background:#1e4a22;color:#fff;font-size:11px;font-weight:700;padding:4px 9px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.28);border:2px solid #fff;cursor:pointer;">${pin.label}</div>`,
+                html: `<div style="background:#1f4d36;color:#fff;font-size:11px;font-weight:700;padding:4px 9px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.28);border:2px solid #fff;cursor:pointer;">${pin.label}</div>`,
                 iconAnchor: [0, 0],
               }),
             }).addTo(map);
@@ -82,11 +66,11 @@ export default function LeafletMap({ pins, height = 340, single = false }: Props
   useEffect(() => () => { mapRef.current?.remove(); mapRef.current = null; }, []);
 
   if (pins.length === 0) return (
-    <div className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] flex items-center justify-center text-sm text-[var(--text-muted)]"
+    <div className="w-full rounded-2xl border border-(--border) bg-(--bg-surface) flex items-center justify-center text-sm text-(--text-muted)"
       style={{ height }}>
       No location set
     </div>
   );
 
-  return <div ref={containerRef} className="w-full rounded-2xl overflow-hidden border border-[var(--border)]" style={{ height }} />;
+  return <div ref={containerRef} className="w-full rounded-2xl overflow-hidden border border-(--border)" style={{ height }} />;
 }

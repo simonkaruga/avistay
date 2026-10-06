@@ -1,14 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime, timezone
 
 from app.core.database import get_db
+from app.core.security import revoke_sessions
 from app.core.deps import require_admin
 from app.core.audit_log import log_event
-from app.models.models import User, Property, Booking, DamageClaim
+from app.models.models import User, Property, Booking
 
 router = APIRouter(tags=["admin"])
 
@@ -30,12 +31,6 @@ class VerifyOwner(BaseModel):
 class BlacklistGuest(BaseModel):
     user_id: str
     reason: str
-
-
-class DisputeRuling(BaseModel):
-    claim_id: str
-    ruling: str
-    approved_amount: int  # KES
 
 
 @router.get("/stats")
@@ -101,14 +96,6 @@ async def suspend_listing(
     return {"status": "suspended"}
 
 
-@router.get("/disputes")
-async def list_disputes(admin: User = Depends(require_admin), db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(DamageClaim).where(DamageClaim.status == "pending").order_by(DamageClaim.created_at.desc())
-    )
-    return result.scalars().all()
-
-
 @router.post("/owners/verify")
 async def verify_owner(
     body: VerifyOwner,
@@ -129,9 +116,32 @@ async def list_owners(admin: User = Depends(require_admin), db: AsyncSession = D
     result = await db.execute(select(User).where(User.role == "owner"))
     users = result.scalars().all()
     return [
-        {"id": u.id, "name": u.name, "phone": u.phone, "verified_at": u.verified_at}
+        {"id": u.id, "name": u.name, "phone": u.phone, "verified_at": u.verified_at,
+         "commission_pct": u.commission_pct}
         for u in users
     ]
+
+
+class CommissionUpdate(BaseModel):
+    commission_pct: int = Field(..., ge=0, le=30)
+
+
+@router.put("/owners/{user_id}/commission")
+async def set_commission(
+    user_id: str,
+    body: CommissionUpdate,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """10% standard; 7% for the first 20 founding-partner owners. Applies to new bookings only —
+    existing bookings keep the commission locked in when they were made."""
+    user = (await db.execute(select(User).where(User.id == user_id, User.role == "owner"))).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Owner not found")
+    old = user.commission_pct
+    user.commission_pct = body.commission_pct
+    await log_event(db, "owner_commission_changed", user_id, admin.id, {"from": old, "to": body.commission_pct})
+    return {"commission_pct": user.commission_pct}
 
 
 @router.post("/guests/blacklist")
@@ -146,26 +156,8 @@ async def blacklist_guest(
 
     # Mark role as banned
     user.role = "banned"
+    revoke_sessions(user)
     await db.commit()
     await log_event(db, "guest_blacklisted", body.user_id, admin.id,
                     {"reason": body.reason, "phone": user.phone})
     return {"status": "blacklisted"}
-
-
-@router.post("/disputes/ruling")
-async def rule_dispute(
-    body: DisputeRuling,
-    admin: User = Depends(require_admin),
-    db: AsyncSession = Depends(get_db),
-):
-    claim = (await db.execute(select(DamageClaim).where(DamageClaim.id == body.claim_id))).scalar_one_or_none()
-    if not claim:
-        raise HTTPException(status_code=404, detail="Claim not found")
-
-    claim.ruling = body.ruling
-    claim.status = "approved" if body.approved_amount > 0 else "rejected"
-    claim.claimed_amount = body.approved_amount
-    await db.commit()
-    await log_event(db, "dispute_ruled", body.claim_id, admin.id,
-                    {"ruling": body.ruling, "amount": body.approved_amount})
-    return {"status": claim.status}

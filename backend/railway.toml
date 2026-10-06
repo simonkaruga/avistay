@@ -3,6 +3,8 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
+# Schema must be migrated before new code serves traffic (0008 is required by this release).
+preDeployCommand = "alembic upgrade head"
 startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT --workers 2"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 30

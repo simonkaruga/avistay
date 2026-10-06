@@ -1,66 +1,71 @@
-import { precacheAndRoute } from "workbox-precaching";
+import { cleanupOutdatedCaches, matchPrecache, precacheAndRoute } from "workbox-precaching";
 import { registerRoute } from "workbox-routing";
-import { StaleWhileRevalidate, CacheFirst, NetworkFirst } from "workbox-strategies";
+import { CacheFirst, NetworkFirst } from "workbox-strategies";
 import { ExpirationPlugin } from "workbox-expiration";
-import { BackgroundSyncPlugin } from "workbox-background-sync";
 
 /// <reference lib="webworker" />
 export {};
 declare const self: ServiceWorkerGlobalScope & typeof globalThis;
 
-// Precache app shell
+// App files (JS/CSS/HTML) from this release; files from older releases are removed.
 precacheAndRoute(self.__WB_MANIFEST);
+cleanupOutdatedCaches();
 
-// Property listings — StaleWhileRevalidate (browse offline after first load)
+// Pages: always ask the network first so a new release shows up straight away
+// (a cached page from an old release points at files that no longer exist).
+// Offline: the last copy of that page, else the app itself.
 registerRoute(
-  ({ url }) => url.pathname.startsWith("/api/properties"),
+  ({ request }) => request.mode === "navigate",
+  new NetworkFirst({
+    cacheName: "pages",
+    networkTimeoutSeconds: 5,
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 30 }),
+      { handlerDidError: async () => (await matchPrecache("/index.html")) ?? Response.error() },
+    ],
+  }),
+);
+
+// Homes: fresh when online, last results when offline.
+registerRoute(
+  ({ url, request }) => request.method === "GET" && url.pathname.startsWith("/api/properties"),
   new NetworkFirst({
     cacheName: "properties-cache",
-    plugins: [new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 300 })],
-  })
-);
-
-// Cloudinary photos — CacheFirst, 7-day expiry (photos available offline once viewed)
-registerRoute(
-  ({ url }) => url.hostname === "res.cloudinary.com",
-  new CacheFirst({
-    cacheName: "property-images",
-    plugins: [new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 604800 })],
-  })
-);
-
-// App shell HTML/CSS/JS — CacheFirst versioned (instant load on repeat visit)
-registerRoute(
-  ({ request }) => request.destination === "document",
-  new StaleWhileRevalidate({ cacheName: "app-shell" })
-);
-
-// Booking confirmations — permanent cache (guest must see check-in code at gate)
-registerRoute(
-  ({ url }) => url.pathname.startsWith("/booking-confirm"),
-  new CacheFirst({ cacheName: "booking-confirmations" })
-);
-
-// Background sync — retry failed bookings when connection returns
-const bookingSync = new BackgroundSyncPlugin("booking-queue", {
-  maxRetentionTime: 60, // retry for up to 1 hour
-});
-
-registerRoute(
-  ({ url }) => url.pathname === "/api/bookings",
-  new NetworkFirst({
-    cacheName: "booking-attempts",
-    plugins: [bookingSync],
+    networkTimeoutSeconds: 5,
+    plugins: [new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 24 * 3600 })],
   }),
-  "POST"
 );
+
+// My trips + booking details: so the check-in code still shows at the gate with
+// no signal. Cleared on sign-out (see utils/api.ts logout).
+registerRoute(
+  ({ url, request }) => request.method === "GET" && url.pathname.startsWith("/api/bookings/"),
+  new NetworkFirst({
+    cacheName: "my-bookings",
+    networkTimeoutSeconds: 5,
+    plugins: [new ExpirationPlugin({ maxEntries: 30, maxAgeSeconds: 30 * 24 * 3600 })],
+  }),
+);
+
+// Photos (listing photos on Cloudinary, our Naivasha photos): once seen, kept a week.
+registerRoute(
+  ({ url, request }) => request.destination === "image"
+    && (url.hostname === "res.cloudinary.com" || /^\/(places|stays)\//.test(url.pathname)),
+  new CacheFirst({
+    cacheName: "photos",
+    plugins: [new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 7 * 24 * 3600 })],
+  }),
+);
+
+// Note: bookings and payments are never queued and re-sent later. A guest who
+// is offline must see that the booking didn't go through, not be charged later.
 
 // Push notification handler
 self.addEventListener("push", (event: PushEvent) => {
   if (!event.data) return;
   const data = event.data.json();
   event.waitUntil(
-    self.registration.showNotification(data.title ?? "StayNaivasha", {
+    self.registration.showNotification(data.title ?? "Avistay", {
       body: data.body,
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
@@ -69,7 +74,7 @@ self.addEventListener("push", (event: PushEvent) => {
   );
 });
 
-// Notification click — open the relevant page
+// Notification click: open the relevant page
 self.addEventListener("notificationclick", (event: NotificationEvent) => {
   event.notification.close();
   const url = event.notification.data?.url ?? "/";
@@ -80,15 +85,4 @@ self.addEventListener("notificationclick", (event: NotificationEvent) => {
       return self.clients.openWindow(url);
     })
   );
-});
-
-// Offline fallback — never show raw browser error
-self.addEventListener("fetch", (event: FetchEvent) => {
-  if (event.request.mode === "navigate") {
-    event.respondWith(
-      fetch(event.request).catch(() =>
-        caches.match("/") as Promise<Response>
-      )
-    );
-  }
 });

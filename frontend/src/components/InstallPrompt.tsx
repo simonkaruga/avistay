@@ -44,24 +44,24 @@ export default function InstallPrompt() {
 
   return (
     <div
-      className="fixed bottom-20 left-4 right-4 z-50 bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl shadow-xl px-4 py-3 flex items-center gap-3"
+      className="fixed bottom-20 left-4 right-4 z-50 bg-(--bg-surface) border border-(--border) rounded-2xl shadow-xl px-4 py-3 flex items-center gap-3"
       style={{ animation: "fade-up 0.3s ease-out both" }}
     >
-      <img src="/logo.png" alt="" className="w-10 h-10 object-contain flex-shrink-0" />
+      <img src="/logo-mark.svg" alt="" className="w-10 h-10 object-contain shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-[var(--text-primary)] text-sm leading-tight">Add to Home Screen</p>
-        <p className="text-[13px] text-[var(--text-muted)] mt-0.5">Book Naivasha homes in one tap</p>
+        <p className="font-semibold text-(--text-primary) text-sm leading-tight">Add to Home Screen</p>
+        <p className="text-[13px] text-(--text-muted) mt-0.5">Book Naivasha homes in one tap</p>
       </div>
-      <div className="flex gap-2 flex-shrink-0">
+      <div className="flex gap-2 shrink-0">
         <button
           onClick={dismiss}
-          className="text-[var(--text-muted)] text-xs px-2 py-1.5"
+          className="text-(--text-muted) text-xs px-2 py-1.5"
         >
           Not now
         </button>
         <button
           onClick={install}
-          className="bg-[var(--color-forest)] text-white text-xs font-bold px-3 py-1.5 rounded-xl"
+          className="bg-forest text-white text-xs font-bold px-3 py-1.5 rounded-xl"
         >
           Install
         </button>

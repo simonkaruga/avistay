@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { BadgeCheck } from "lucide-react";
+import { Award, BadgeCheck, ChevronLeft, ChevronRight, Heart, Star } from "lucide-react";
 import { toggleSaved, isSaved } from "../pages/Saved";
 import { imgSrc } from "../utils/image";
 import TypeIcon from "./TypeIcon";
@@ -20,6 +20,8 @@ export interface PropertyCardData {
   host_since?: string;
   lat?: number;
   lng?: number;
+  area?: string | null;
+  min_nights?: number;
 }
 
 // ── 3-D tilt (desktop only) ───────────────────────────────────────────────────
@@ -81,12 +83,12 @@ function PhotoCarousel({ photos, title }: { photos: string[]; title: string }) {
           {isDesktop && (
             <>
               <button onClick={prev}
-                className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 bg-white/85 backdrop-blur-sm rounded-full flex items-center justify-center shadow opacity-0 group-hover:opacity-100 transition-opacity">
-                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="#333" strokeWidth={2.5}><path d="M15 18l-6-6 6-6"/></svg>
+                className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 bg-white/85 backdrop-blur-xs rounded-full flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                <ChevronLeft className="w-3.5 h-3.5" stroke="#333" strokeWidth={2.5} aria-hidden="true" />
               </button>
               <button onClick={next}
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 bg-white/85 backdrop-blur-sm rounded-full flex items-center justify-center shadow opacity-0 group-hover:opacity-100 transition-opacity">
-                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="#333" strokeWidth={2.5}><path d="M9 18l6-6-6-6"/></svg>
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 bg-white/85 backdrop-blur-xs rounded-full flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                <ChevronRight className="w-3.5 h-3.5" stroke="#333" strokeWidth={2.5} aria-hidden="true" />
               </button>
             </>
           )}
@@ -104,7 +106,8 @@ function PhotoCarousel({ photos, title }: { photos: string[]; title: string }) {
 }
 
 // ── Card ─────────────────────────────────────────────────────────────────────
-export default function PropertyCard({ p }: { p: PropertyCardData }) {
+/** `query` is appended to the link, e.g. "check_in=2026-10-09&check_out=2026-10-11". */
+export default function PropertyCard({ p, query }: { p: PropertyCardData; query?: string }) {
   const [saved, setSaved] = useState(() => isSaved(p.id));
   const tiltRef = useTilt();
 
@@ -114,23 +117,23 @@ export default function PropertyCard({ p }: { p: PropertyCardData }) {
   return (
     <Link
       ref={tiltRef}
-      to={`/property/${p.id}`}
+      to={`/property/${p.id}${query ? `?${query}` : ""}`}
       style={{ transformStyle: "preserve-3d" }}
-      className="group block rounded-2xl overflow-hidden bg-white shadow-sm active:scale-[.98]"
+      className="group block rounded-2xl overflow-hidden bg-white shadow-xs active:scale-[.98]"
     >
       {/* ── Photo carousel ── */}
       <div className="relative overflow-hidden" style={{ aspectRatio: "4/3" }}>
         {photos.length > 0
           ? <PhotoCarousel photos={photos} title={p.title} />
-          : <div className="w-full h-full bg-gradient-to-br from-[var(--color-forest)] to-[var(--color-mint)] flex items-center justify-center">
+          : <div className="w-full h-full bg-linear-to-br from-forest to-mint flex items-center justify-center">
               <TypeIcon type={p.type} className="w-10 h-10 text-white/30" />
             </div>
         }
 
-        {/* Guest Favourite badge */}
+        {/* Top rated badge */}
         {isGuestFavourite && (
-          <span className="absolute top-2.5 left-2.5 bg-white text-[var(--color-nearblack)] text-[12px] font-bold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-0.5">
-            ❤️ Guest Favourite
+          <span className="absolute top-2.5 left-2.5 bg-white text-nearblack text-[12px] font-bold px-2 py-0.5 rounded-full shadow-xs flex items-center gap-0.5">
+            <Award className="w-3 h-3 text-clay" aria-hidden="true" /> Top rated
           </span>
         )}
 
@@ -138,13 +141,8 @@ export default function PropertyCard({ p }: { p: PropertyCardData }) {
         <button
           onClick={e => { e.preventDefault(); e.stopPropagation(); setSaved(toggleSaved(p.id)); }}
           aria-label={saved ? "Remove from saved" : "Save"}
-          className="absolute top-2.5 right-2.5 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm transition-transform active:scale-90">
-          <svg viewBox="0 0 24 24" className="w-[18px] h-[18px]"
-            fill={saved ? "#ef4444" : "none"}
-            stroke={saved ? "#ef4444" : "#333333"}
-            strokeWidth={2}>
-            <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 000-7.78z" />
-          </svg>
+          className="absolute top-2.5 right-2.5 w-8 h-8 bg-white/90 backdrop-blur-xs rounded-full flex items-center justify-center shadow-xs transition-transform active:scale-90">
+          <Heart className="w-[18px] h-[18px]" fill={saved ? "#ef4444" : "none"} stroke={saved ? "#ef4444" : "#333333"} aria-hidden="true" />
         </button>
       </div>
 
@@ -153,22 +151,20 @@ export default function PropertyCard({ p }: { p: PropertyCardData }) {
 
         {/* Type · location · trust tags */}
         <div className="flex items-center justify-between">
-          <span className="flex items-center gap-1 text-[13px] text-[var(--text-muted)] capitalize">
+          <span className="flex items-center gap-1 text-[13px] text-(--text-muted) capitalize">
             <TypeIcon type={p.type} className="w-3 h-3" />
             {p.type} · Naivasha
           </span>
           <span className="flex items-center gap-1.5">
             {p.verified_tier === 1 && (
-              <span className="flex items-center gap-0.5 text-[13px] font-semibold text-[var(--color-teal)]">
-                <svg viewBox="0 0 24 24" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                  <path d="M12 2l2.5 4.5L20 7.5l-4 4 1 5.5L12 14.5 7 17l1-5.5-4-4 5.5-1z"/>
-                </svg>
+              <span className="flex items-center gap-0.5 text-[13px] font-semibold text-teal">
+                <Star className="w-3 h-3" strokeWidth={2.5} aria-hidden="true" />
                 Trusted
               </span>
             )}
             {p.verified_tier >= 2 && (
               <span className="flex items-center gap-0.5 text-[13px] font-bold text-white px-1.5 py-0.5 rounded-full"
-                style={{ background: "linear-gradient(135deg, #1e4a22, #186878)" }}>
+                style={{ background: "linear-gradient(135deg, #1f4d36, #2b6777)" }}>
                 <BadgeCheck size={10} /> Team Verified
               </span>
             )}
@@ -176,7 +172,7 @@ export default function PropertyCard({ p }: { p: PropertyCardData }) {
         </div>
 
         {/* Title */}
-        <h3 className="font-semibold text-[var(--text-primary)] text-sm leading-snug line-clamp-2">
+        <h3 className="font-semibold text-(--text-primary) text-sm leading-snug line-clamp-2">
           {p.title}
         </h3>
 
@@ -185,18 +181,18 @@ export default function PropertyCard({ p }: { p: PropertyCardData }) {
           <span>
             {p.avg_rating
               ? <span className="flex items-center gap-0.5">
-                  <span className="text-amber-500 text-sm leading-none">★</span>
-                  <span className="text-[13px] font-bold text-[var(--text-primary)]">{p.avg_rating.toFixed(1)}</span>
+                  <Star className="w-3.5 h-3.5 fill-gold text-gold" aria-hidden="true" />
+                  <span className="text-[13px] font-bold text-(--text-primary)">{p.avg_rating.toFixed(1)}</span>
                   {p.review_count
-                    ? <span className="text-[13px] text-[var(--text-muted)]">({p.review_count})</span>
+                    ? <span className="text-[13px] text-(--text-muted)">({p.review_count})</span>
                     : null}
                 </span>
-              : <span className="text-[13px] font-semibold text-[var(--color-mint)]">New</span>
+              : <span className="text-[13px] font-semibold text-mint">New</span>
             }
           </span>
-          <p className="text-[13px] font-bold text-[var(--text-primary)]">
+          <p className="text-[13px] font-bold text-(--text-primary) whitespace-nowrap">
             KES {p.price_per_night.toLocaleString()}
-            <span className="text-[13px] font-normal text-[var(--text-muted)]">/night</span>
+            <span className="text-[13px] font-normal text-(--text-muted)">/night</span>
           </p>
         </div>
 

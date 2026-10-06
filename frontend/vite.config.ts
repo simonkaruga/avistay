@@ -28,15 +28,18 @@ export default defineConfig({
         swSrc: "src/sw/service-worker.ts",
         swDest: "dist/service-worker.js",
       },
-      devOptions: { enabled: true, type: "module" },
+      devOptions: { enabled: false },   // a worker in dev serves stale files
     }),
   ],
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ["react", "react-dom", "react-router-dom"],
-          query:  ["@tanstack/react-query"],
+        // Long-lived caches for libraries that rarely change.
+        manualChunks(id: string) {
+          if (!id.includes("node_modules")) return undefined;
+          if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) return "vendor";
+          if (id.includes("@tanstack/react-query")) return "query";
+          return undefined;
         },
       },
     },

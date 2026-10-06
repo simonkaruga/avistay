@@ -1,0 +1,15 @@
+# Pinned rule set so CI doesn't change when ruff's defaults do.
+target-version = "py312"
+line-length = 130
+extend-exclude = ["alembic/versions"]
+
+[lint]
+select = ["E4", "E7", "E9", "F", "B"]
+ignore = [
+  "B008",  # FastAPI's Depends()/Query() in defaults is the intended style
+  "B904",  # raise HTTPException inside except is deliberate
+  "E712",  # `Column == True` builds SQL; `is True` would silently break the query
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["E402"]

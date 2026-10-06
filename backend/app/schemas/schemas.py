@@ -1,16 +1,30 @@
 from datetime import date, datetime
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, field_validator, Field
+
+from app.core.phone import normalize_ke
 
 
 # ── Auth ─────────────────────────────────────────────────────────────────────
 
+
 class OTPRequest(BaseModel):
     phone: str = Field(..., examples=["+254712345678"])
+
+    @field_validator("phone")
+    @classmethod
+    def _phone(cls, v: str) -> str:
+        return normalize_ke(v)
+
 
 class OTPVerify(BaseModel):
     phone: str
     code: str = Field(..., min_length=6, max_length=6)
+
+    @field_validator("phone")
+    @classmethod
+    def _phone(cls, v: str) -> str:
+        return normalize_ke(v)
 
 class TokenResponse(BaseModel):
     user_id: str
@@ -19,6 +33,12 @@ class TokenResponse(BaseModel):
     name: Optional[str] = None
     email: Optional[str] = None
     sms_opt_in: bool = True
+    is_superadmin: bool = False
+    # Only for the mobile app (X-Client: native) — the web uses httpOnly cookies
+    # so tokens are never readable by page scripts.
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+    expires_in: Optional[int] = None
 
 
 # ── Properties ───────────────────────────────────────────────────────────────
@@ -30,6 +50,15 @@ class PropertyImageOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+def _hhmm(v: str) -> str:
+    """'9:00' / '09:00' → '09:00'; rejects anything that isn't a 24h time."""
+    import re
+    m = re.fullmatch(r"([01]?\d|2[0-3]):([0-5]\d)", (v or "").strip())
+    if not m:
+        raise ValueError("Use a 24-hour time like 14:00")
+    return f"{int(m.group(1)):02d}:{m.group(2)}"
+
 
 class PropertyCreate(BaseModel):
     title: str = Field(..., min_length=5, max_length=200)
@@ -44,6 +73,52 @@ class PropertyCreate(BaseModel):
     no_checkout_days: Optional[str] = None  # comma-separated day numbers e.g. "0,6"
     response_time_hours: Optional[int] = None
     cancellation_policy: str = "moderate"
+    area: Optional[str] = None
+    # House rules & policies
+    deposit_amount: int = Field(0, ge=0, le=100_000, description="KES; 0 = no damage deposit")
+    max_guests: Optional[int] = Field(None, ge=1, le=100)
+    check_in_from: str = "14:00"
+    check_in_until: Optional[str] = None
+    check_out_until: str = "10:00"
+    children_allowed: bool = True
+    pets_allowed: bool = False
+    smoking_allowed: bool = False
+    parties_allowed: bool = False
+    quiet_hours: Optional[str] = None
+    house_rules: Optional[str] = Field(None, max_length=2000)
+
+    @field_validator("check_in_from", "check_out_until")
+    @classmethod
+    def _time(cls, v: str) -> str:
+        return _hhmm(v)
+
+    @field_validator("check_in_until")
+    @classmethod
+    def _opt_time(cls, v: Optional[str]) -> Optional[str]:
+        return _hhmm(v) if v else None
+
+    @field_validator("quiet_hours")
+    @classmethod
+    def _quiet(cls, v: Optional[str]) -> Optional[str]:
+        if not v:
+            return None
+        start, _, end = v.partition("-")
+        return f"{_hhmm(start.strip())}-{_hhmm(end.strip())}"
+
+    @field_validator("cancellation_policy")
+    @classmethod
+    def _policy(cls, v: str) -> str:
+        if v not in ("flexible", "moderate", "strict"):
+            raise ValueError("cancellation_policy must be flexible, moderate or strict")
+        return v
+
+    @field_validator("area")
+    @classmethod
+    def _known_area(cls, v: Optional[str]) -> Optional[str]:
+        from app.models.models import NAIVASHA_AREAS
+        if v and v not in NAIVASHA_AREAS:
+            raise ValueError(f"area must be one of: {', '.join(NAIVASHA_AREAS)}")
+        return v or None
 
 class PropertyOut(BaseModel):
     id: str
@@ -60,11 +135,33 @@ class PropertyOut(BaseModel):
     no_checkout_days: Optional[str]
     response_time_hours: Optional[int]
     cancellation_policy: str = "moderate"
+    area: Optional[str] = None
+    deposit_amount: int = 0
+    max_guests: Optional[int] = None
+    check_in_from: str = "14:00"
+    check_in_until: Optional[str] = None
+    check_out_until: str = "10:00"
+    children_allowed: bool = True
+    pets_allowed: bool = False
+    smoking_allowed: bool = False
+    parties_allowed: bool = False
+    quiet_hours: Optional[str] = None
+    house_rules: Optional[str] = None
     active: bool
     images: list[PropertyImageOut] = []
 
     class Config:
         from_attributes = True
+
+class PropertyDetailOut(PropertyOut):
+    """Public property page: listing + what a guest needs to decide."""
+    area_label: Optional[str] = None
+    host_name: Optional[str] = None
+    host_since: Optional[datetime] = None
+    host_id_verified: bool = False
+    deposit_amount: int = 0
+    policy_summary: Optional[str] = None
+
 
 class PropertyListOut(BaseModel):
     id: str
@@ -77,6 +174,9 @@ class PropertyListOut(BaseModel):
     lng: Optional[float] = None
     avg_rating: Optional[float] = None
     review_count: Optional[int] = None
+    area: Optional[str] = None
+    min_nights: int = 1
+    max_guests: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -95,6 +195,7 @@ class BookingCreate(BaseModel):
     is_corporate: bool = False
     company_name: Optional[str] = None
     kra_pin: Optional[str] = None
+    ref_code: Optional[str] = Field(None, max_length=12)   # agent who referred the guest (?ref= link)
 
 class BookingOut(BaseModel):
     id: str
@@ -114,6 +215,22 @@ class BookingOut(BaseModel):
     checkin_code: Optional[str] = None
     mpesa_ref: Optional[str] = None
     created_at: datetime
+    # Price snapshot + money state
+    room_amount: int = 0
+    levy_amount: int = 0
+    cancellation_policy: str = "moderate"
+    deposit_status: str = "none"
+    checked_in_at: Optional[datetime] = None
+    cancelled_at: Optional[datetime] = None
+    cancelled_by: Optional[str] = None
+    # Guest "manage booking" view (computed; only set by /bookings/mine)
+    policy_summary: Optional[str] = None
+    free_cancellation_until: Optional[date] = None
+    deposit_note: Optional[str] = None
+    dispute_id: Optional[str] = None
+    dispute_status: Optional[str] = None
+    can_cancel: bool = False
+    can_report: bool = False
 
     class Config:
         from_attributes = True

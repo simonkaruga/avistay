@@ -7,6 +7,11 @@
 export function imgSrc(url: string | undefined, displayWidth: number): string {
   if (!url) return "";
 
+  // Our own Naivasha photos (public/places, public/stays) come in two sizes.
+  if (/^\/(places|stays)\/.+(?<!-sm)\.jpg$/.test(url) && displayWidth <= 700) {
+    return url.replace(/\.jpg$/, "-sm.jpg");
+  }
+
   if (url.includes("res.cloudinary.com")) {
     return url.replace("/upload/", `/upload/c_fill,w_${displayWidth},q_auto:good,f_auto/`);
   }

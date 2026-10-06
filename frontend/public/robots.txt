@@ -7,4 +7,4 @@ Disallow: /admin/
 Disallow: /agent/
 Disallow: /api/
 
-Sitemap: https://staynaivasha.co.ke/sitemap.xml
+Sitemap: https://avistay.com/sitemap.xml

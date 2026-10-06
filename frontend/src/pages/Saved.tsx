@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import PropertyCard, { PropertyCardData } from "../components/PropertyCard";
 import SkeletonCard from "../components/SkeletonCard";
 
+import { Heart } from "lucide-react";
+import { api } from "../utils/api";
 export function getSavedIds(): string[] {
   try { return JSON.parse(localStorage.getItem("saved_properties") ?? "[]"); }
   catch { return []; }
@@ -28,7 +30,7 @@ type RawProperty = Omit<PropertyCardData, "images"> & {
 async function fetchSavedProperties(ids: string[]): Promise<PropertyCardData[]> {
   if (!ids.length) return [];
   const results = await Promise.allSettled(
-    ids.map(id => fetch(`/api/properties/${id}`).then(r => r.ok ? r.json() : null))
+    ids.map(id => api(`/properties/${id}`).then(r => r.ok ? r.json() : null))
   );
   return results
     .filter((r): r is PromiseFulfilledResult<RawProperty> =>
@@ -61,13 +63,13 @@ export default function Saved() {
   });
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] pt-20 pb-6">
+    <div className="min-h-screen bg-(--bg-primary) pt-header pb-6">
 
       {/* Header */}
-      <div className="sticky top-0 z-40 bg-[var(--bg-surface)] border-b border-[var(--border)] px-4 py-4">
-        <h1 className="font-semibold text-[var(--text-primary)] text-lg">Saved homes</h1>
+      <div className="sticky top-0 z-40 bg-(--bg-surface) border-b border-(--border) px-4 py-4">
+        <h1 className="font-semibold text-(--text-primary) text-lg">Saved homes</h1>
         {ids.length > 0 && (
-          <p className="text-xs text-[var(--text-muted)] mt-0.5">{ids.length} saved</p>
+          <p className="text-xs text-(--text-muted) mt-0.5">{ids.length} saved</p>
         )}
       </div>
 
@@ -80,19 +82,17 @@ export default function Saved() {
             <div className="relative w-20 h-20">
               <div className="absolute inset-0 rounded-full bg-red-100 dark:bg-red-900/20 animate-ping opacity-40" />
               <div className="relative w-20 h-20 rounded-full bg-red-50 dark:bg-red-900/30 flex items-center justify-center">
-                <svg viewBox="0 0 24 24" className="w-10 h-10 text-red-400" fill="currentColor">
-                  <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 000-7.78z" />
-                </svg>
+                <Heart className="w-10 h-10 text-red-400" fill="currentColor" aria-hidden="true" />
               </div>
             </div>
             <div className="space-y-1">
-              <p className="font-semibold text-[var(--text-primary)] text-lg">No saved homes yet</p>
-              <p className="text-sm text-[var(--text-muted)] max-w-[220px]">
+              <p className="font-semibold text-(--text-primary) text-lg">No saved homes yet</p>
+              <p className="text-sm text-(--text-muted) max-w-[220px]">
                 Tap the heart on any property to save it here for later.
               </p>
             </div>
             <button onClick={() => navigate("/")}
-              className="bg-[var(--color-forest)] text-white text-sm font-bold px-8 py-3.5 rounded-2xl active:scale-[.98]">
+              className="bg-forest text-white text-sm font-bold px-8 py-3.5 rounded-2xl active:scale-[.98]">
               Browse homes
             </button>
           </div>
@@ -119,7 +119,7 @@ export default function Saved() {
                 window.dispatchEvent(new Event("storage"));
                 setIds([]);
               }}
-              className="w-full border border-[var(--border)] text-[var(--text-muted)] text-xs py-3 rounded-xl font-medium">
+              className="w-full border border-(--border) text-(--text-muted) text-xs py-3 rounded-xl font-medium">
               Clear all saved
             </button>
           </div>

@@ -1,12 +1,12 @@
 """Incoming WhatsApp / SMS webhook from Africa's Talking.
 
 Owners can text a simple command from their phone to instantly block dates
-without opening an app — useful when they get an Airbnb notification.
+without opening an app. Useful when they get an Airbnb notification.
 
 Supported commands (case-insensitive):
 
   BLOCK <property-code> <check-in YYYY-MM-DD> <check-out YYYY-MM-DD>
-      → Instantly blocks those dates on StayNaivasha
+      → Instantly blocks those dates on Avistay
       → Replies with confirmation
 
   UNBLOCK <property-code> <check-in> <check-out>
@@ -112,8 +112,8 @@ async def _handle_command(sender: str, text: str) -> str:
 
             await db.commit()
             return (
-                f"✅ Done! *{prop.title}* — {check_in} to {check_out} ({nights} night{'s' if nights != 1 else ''}) "
-                f"is now blocked on StayNaivasha. "
+                f"✅ Done! *{prop.title}*: {check_in} to {check_out} ({nights} night{'s' if nights != 1 else ''}) "
+                f"is now blocked on Avistay. "
                 f"No new bookings can come in for those dates."
             )
 
@@ -138,7 +138,7 @@ async def _handle_command(sender: str, text: str) -> str:
             )
             await db.commit()
             nights = (check_out - check_in).days
-            return f"✅ Unblocked {nights} night{'s' if nights != 1 else ''} on *{prop.title}* — dates are open again."
+            return f"✅ Unblocked {nights} night{'s' if nights != 1 else ''} on *{prop.title}*. Dates are open again."
 
         elif cmd == "STATUS" and len(parts) == 2:
             _, code = parts
@@ -156,7 +156,7 @@ async def _handle_command(sender: str, text: str) -> str:
             )).scalars().all()
 
             if not rows:
-                return f"*{prop.title}* — no blocked dates in the next 30 days. ✅"
+                return f"*{prop.title}*: no blocked dates in the next 30 days. ✅"
 
             # Collapse consecutive days into ranges
             ranges: list[tuple[date, date]] = []
@@ -170,7 +170,7 @@ async def _handle_command(sender: str, text: str) -> str:
                     start = prev = row.date
             ranges.append((start, prev + timedelta(days=1)))
 
-            lines = [f"*{prop.title}* — blocked dates:"]
+            lines = [f"*{prop.title}*: blocked dates:"]
             for s, e in ranges[:5]:
                 lines.append(f"  • {s} → {e}")
             if len(ranges) > 5:
@@ -183,7 +183,7 @@ async def _handle_command(sender: str, text: str) -> str:
 
 def _help_text() -> str:
     return (
-        "*StayNaivasha owner commands:*\n\n"
+        "*Avistay owner commands:*\n\n"
         "BLOCK <code> <from> <to>\n"
         "  Block dates when you get an Airbnb booking\n"
         "  _e.g. BLOCK abc12345 2026-07-01 2026-07-05_\n\n"

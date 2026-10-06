@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
@@ -6,17 +5,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from pydantic import BaseModel
 
+from app.workers.queue import enqueue
 from app.core.database import get_db
 from app.core.deps import require_owner
 from app.models.models import User, Property, Booking, ExternalCalendar
-from app.services.ical import generate_ical, parse_remote_ical
+from app.services.ical import UnsafeUrl, generate_ical, parse_remote_ical
 
 router = APIRouter(tags=["ical"])
 
 PLATFORMS = {"airbnb", "booking", "vrbo", "other"}
 
 
-# ── iCal export (StayNaivasha → Airbnb/Booking.com) ──────────────────────────
+# ── iCal export (Avistay → Airbnb/Booking.com) ──────────────────────────
 
 @router.get("/export/{property_uuid}")
 async def export_ical(property_uuid: str, db: AsyncSession = Depends(get_db)):
@@ -38,7 +38,7 @@ async def export_ical(property_uuid: str, db: AsyncSession = Depends(get_db)):
     return Response(
         content=cal_bytes,
         media_type="text/calendar",
-        headers={"Content-Disposition": f'attachment; filename="staynaivasha-{property_uuid[:8]}.ics"'},
+        headers={"Content-Disposition": f'attachment; filename="avistay-{property_uuid[:8]}.ics"'},
     )
 
 # Keep old URL working for any already-connected platforms
@@ -99,11 +99,13 @@ async def add_calendar(
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
 
-    # Validate the URL is reachable before saving
+    # Validate the URL is safe and reachable before saving
     try:
         await parse_remote_ical(body.ical_url)
+    except UnsafeUrl as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     except Exception:
-        raise HTTPException(status_code=400, detail="Could not fetch that iCal URL — make sure it is public and correct")
+        raise HTTPException(status_code=400, detail="Could not fetch that iCal URL. Make sure it is public and correct")
 
     cal = ExternalCalendar(
         property_id=body.property_id,
@@ -116,7 +118,7 @@ async def add_calendar(
 
     # Immediate sync so blocked dates appear right away
     from app.workers.tasks import sync_all_icals
-    sync_all_icals.delay()
+    enqueue(sync_all_icals)
 
     return {"id": cal.id, "message": f"{body.platform.title()} calendar connected. Syncing now…"}
 

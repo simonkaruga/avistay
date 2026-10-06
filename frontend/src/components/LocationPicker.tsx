@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { loadLeaflet, OSM_ATTRIBUTION, OSM_TILES } from "../utils/leaflet";
 import type { Map as LMap, Marker as LMarker } from "leaflet";
 
+import { MapPin } from "lucide-react";
 const NAIVASHA_LAT = -0.7127;
 const NAIVASHA_LNG = 36.4310;
 
@@ -30,14 +32,6 @@ function parseGoogleMapsUrl(url: string): { lat: number; lng: number } | null {
   }
 }
 
-function loadLeafletCss() {
-  if (document.getElementById("leaflet-css")) return;
-  const link = document.createElement("link");
-  link.id   = "leaflet-css";
-  link.rel  = "stylesheet";
-  link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-  document.head.appendChild(link);
-}
 
 export default function LocationPicker({ lat, lng, onChange }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -51,21 +45,14 @@ export default function LocationPicker({ lat, lng, onChange }: Props) {
   useEffect(() => {
     if (!open || !containerRef.current || mapRef.current) return;
 
-    import("leaflet").then(L => {
-      delete (L.Icon.Default.prototype as any)._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-        iconUrl:       "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-        shadowUrl:     "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-      });
-      loadLeafletCss();
+    loadLeaflet().then(L => {
 
       const initLat = lat ? parseFloat(lat) : NAIVASHA_LAT;
       const initLng = lng ? parseFloat(lng) : NAIVASHA_LNG;
       const zoom    = lat ? 16 : 13;
 
-      const map = L.map(containerRef.current!, { zoomControl: true, attributionControl: false });
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
+      const map = L.map(containerRef.current!, { zoomControl: true });
+      L.tileLayer(OSM_TILES, { maxZoom: 19, attribution: OSM_ATTRIBUTION }).addTo(map);
       map.setView([initLat, initLng], zoom);
       mapRef.current = map;
 
@@ -122,7 +109,7 @@ export default function LocationPicker({ lat, lng, onChange }: Props) {
       setUrlError("");
       if (!open) setOpen(true); // auto-open map to confirm
     } else {
-      setUrlError("Couldn't read coordinates from this link — open map and tap your property instead.");
+      setUrlError("Couldn't read coordinates from this link. Open map and tap your property instead.");
     }
   }
 
@@ -133,7 +120,7 @@ export default function LocationPicker({ lat, lng, onChange }: Props) {
 
       {/* Step 1 — paste Google Maps link */}
       <div>
-        <p className="text-[13px] text-[var(--text-muted)] mb-1.5">
+        <p className="text-[13px] text-(--text-muted) mb-1.5">
           Open Google Maps, long-press your property, tap <strong>Share</strong> and paste the link below:
         </p>
         <div className="flex gap-2">
@@ -143,10 +130,10 @@ export default function LocationPicker({ lat, lng, onChange }: Props) {
             onChange={e => { setPasteUrl(e.target.value); setUrlError(""); }}
             onKeyDown={e => e.key === "Enter" && (e.preventDefault(), handlePaste())}
             placeholder="https://maps.google.com/..."
-            className="flex-1 bg-[var(--bg-primary)] border border-[var(--border)] text-[var(--text-primary)] rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[var(--color-teal)] transition-colors"
+            className="flex-1 bg-(--bg-primary) border border-(--border) text-(--text-primary) rounded-xl px-3 py-2.5 text-sm outline-hidden focus:border-teal transition-colors"
           />
           <button type="button" onClick={handlePaste}
-            className="px-4 py-2.5 bg-[var(--color-teal)] text-white text-sm font-semibold rounded-xl flex-shrink-0">
+            className="px-4 py-2.5 bg-teal text-white text-sm font-semibold rounded-xl shrink-0">
             Set
           </button>
         </div>
@@ -155,28 +142,26 @@ export default function LocationPicker({ lat, lng, onChange }: Props) {
 
       {/* Divider */}
       <div className="flex items-center gap-2">
-        <div className="flex-1 h-px bg-[var(--border)]" />
-        <span className="text-[12px] text-[var(--text-muted)]">or pick on map</span>
-        <div className="flex-1 h-px bg-[var(--border)]" />
+        <div className="flex-1 h-px bg-(--border)" />
+        <span className="text-[12px] text-(--text-muted)">or pick on map</span>
+        <div className="flex-1 h-px bg-(--border)" />
       </div>
 
       {/* Step 2 — interactive map picker */}
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-center gap-2 border border-[var(--border)] text-[var(--text-primary)] text-sm font-medium py-2.5 rounded-xl transition-colors active:bg-[var(--bg-surface)]"
+        className="w-full flex items-center justify-center gap-2 border border-(--border) text-(--text-primary) text-sm font-medium py-2.5 rounded-xl transition-colors active:bg-(--bg-surface)"
       >
-        <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2}>
-          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
-        </svg>
+        <MapPin className="w-4 h-4" aria-hidden="true" />
         {open ? "Close map" : hasCoords ? "Adjust pin on map" : "Tap to place pin"}
       </button>
 
       {open && (
         <div>
-          <p className="text-[12px] text-[var(--text-muted)] mb-2">Tap anywhere on the map to place or move your pin.</p>
+          <p className="text-[12px] text-(--text-muted) mb-2">Tap anywhere on the map to place or move your pin.</p>
           <div ref={containerRef}
-            className="w-full rounded-2xl overflow-hidden border border-[var(--border)]"
+            className="w-full rounded-2xl overflow-hidden border border-(--border)"
             style={{ height: 300 }}
           />
         </div>
@@ -184,13 +169,11 @@ export default function LocationPicker({ lat, lng, onChange }: Props) {
 
       {/* Coordinates confirmed badge */}
       {hasCoords && (
-        <div className="flex items-center gap-3 bg-[var(--color-forest)]/8 border border-[var(--color-forest)]/20 rounded-xl px-3 py-2.5">
-          <svg viewBox="0 0 24 24" className="w-4 h-4 text-[var(--color-forest)] flex-shrink-0" fill="currentColor">
-            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-          </svg>
+        <div className="flex items-center gap-3 bg-forest/8 border border-forest/20 rounded-xl px-3 py-2.5">
+          <MapPin className="w-4 h-4 text-forest shrink-0" fill="currentColor" aria-hidden="true" />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-[var(--color-forest)]">Pin saved</p>
-            <p className="text-[11px] text-[var(--text-muted)] font-mono truncate">
+            <p className="text-xs font-semibold text-forest">Pin saved</p>
+            <p className="text-[11px] text-(--text-muted) font-mono truncate">
               {parseFloat(lat).toFixed(5)}, {parseFloat(lng).toFixed(5)}
             </p>
           </div>
@@ -198,7 +181,7 @@ export default function LocationPicker({ lat, lng, onChange }: Props) {
             href={`https://www.google.com/maps?q=${lat},${lng}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[12px] text-[var(--color-teal)] font-medium underline flex-shrink-0"
+            className="text-[12px] text-teal font-medium underline shrink-0"
           >
             Verify ↗
           </a>

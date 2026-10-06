@@ -3,6 +3,7 @@
 Agents register, browse properties, create bookings on behalf of clients,
 track their referral commissions, and download booking vouchers.
 """
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +23,7 @@ class AgentRegister(BaseModel):
 
 class AgentOut(BaseModel):
     id: str
+    ref_code: str
     agency_name: str | None
     commission_pct: int
     status: str
@@ -162,8 +164,15 @@ async def record_referral(
     agent = await _get_active_agent(user, db)
 
     booking = (await db.execute(select(Booking).where(Booking.id == body.booking_id))).scalar_one_or_none()
-    if not booking:
+    # Agents book for their clients from their own account. Anything else would
+    # let an agent claim commission on bookings they had nothing to do with.
+    if not booking or booking.guest_id != user.id:
         raise HTTPException(status_code=404, detail="Booking not found")
+    if booking.status == "cancelled":
+        raise HTTPException(status_code=409, detail="This booking was cancelled")
+    created = booking.created_at if booking.created_at.tzinfo else booking.created_at.replace(tzinfo=timezone.utc)
+    if datetime.now(timezone.utc) - created > timedelta(days=2):
+        raise HTTPException(status_code=409, detail="Referrals must be recorded within 2 days of booking")
 
     existing = (await db.execute(
         select(AgentReferral).where(AgentReferral.booking_id == body.booking_id)
@@ -171,7 +180,8 @@ async def record_referral(
     if existing:
         raise HTTPException(status_code=409, detail="Referral already recorded for this booking")
 
-    commission = int(booking.total_amount * agent.commission_pct / 100)
+    commission = booking.room_amount * agent.commission_pct // 100   # room price only: not the deposit, levy or fee
+    booking.agent_id = agent.id
     referral = AgentReferral(
         agent_id=agent.id,
         booking_id=booking.id,

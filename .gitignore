@@ -28,3 +28,10 @@ backend/alembic/versions/*.pyc
 # OS
 .DS_Store
 Thumbs.db
+
+# Mobile signing keys — never commit
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+frontend/android/keystore.properties
