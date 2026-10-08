@@ -100,6 +100,12 @@ jobs:
             DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic \
             CURRENT_PROJECT_VERSION=${{ github.run_number }} MARKETING_VERSION="${VERSION#app-v}"
 
+      - name: Upload archive artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: naivastay-ios-${{ github.run_number }}
+          path: ${{ runner.temp }}/App.xcarchive
+
       - name: Export and upload to TestFlight
         if: ${{ inputs.upload != false }}
         run: |

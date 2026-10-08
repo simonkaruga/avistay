@@ -42,14 +42,20 @@ def _scrub_event(event, hint):
 sentry_sdk.init(dsn=settings.SENTRY_DSN, traces_sample_rate=0.1, send_default_pii=False,
                 before_send=_scrub_event, before_send_transaction=_scrub_event)
 
-app = FastAPI(title="NaivaStay API", version="1.0.0", docs_url=None, redoc_url=None)
+_production = settings.FRONTEND_URL.startswith("https://")
+app = FastAPI(
+    title="NaivaStay API",
+    version="1.0.0",
+    docs_url=None if _production else "/docs",
+    redoc_url=None if _production else "/redoc",
+)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "X-Requested-With"],
 )
 
 app.include_router(health.router,      prefix="/api")
