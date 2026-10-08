@@ -17,7 +17,7 @@ def _cloudinary(monkeypatch):
 
 
 def url(name: str, cloud: str = CLOUD, kind: str = "image") -> str:
-    return f"https://res.cloudinary.com/{cloud}/{kind}/upload/v1/avistay/listings/{name}.jpg"
+    return f"https://res.cloudinary.com/{cloud}/{kind}/upload/v1/naivastay/listings/{name}.jpg"
 
 
 async def _owner_with_property(db):
@@ -32,8 +32,8 @@ async def _owner_with_property(db):
 
 
 def test_signature_matches_cloudinary_algorithm():
-    params = {"timestamp": 1700000000, "folder": "avistay/listings/u1"}
-    expected = hashlib.sha1(b"folder=avistay/listings/u1&timestamp=1700000000s3cr3t").hexdigest()
+    params = {"timestamp": 1700000000, "folder": "naivastay/listings/u1"}
+    expected = hashlib.sha1(b"folder=naivastay/listings/u1&timestamp=1700000000s3cr3t").hexdigest()
     assert sign_params(params, "s3cr3t") == expected
 
 
@@ -56,7 +56,7 @@ async def test_signature_endpoint_scopes_folder_and_role(client, db):
     r = await client.post("/api/uploads/signature", json={"purpose": "listing"}, cookies=auth_cookies(owner_id))
     assert r.status_code == 200
     body = r.json()
-    assert body["folder"] == f"avistay/listings/{owner_id}"
+    assert body["folder"] == f"naivastay/listings/{owner_id}"
     assert body["cloud_name"] == CLOUD and "api_secret" not in body
     assert body["signature"] == sign_params({"timestamp": body["timestamp"], "folder": body["folder"]}, "s3cr3t")
 

@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Avistay</string>
-    <string name="title_activity_main">Avistay</string>
-    <string name="package_name">com.avistay.app</string>
-    <string name="custom_url_scheme">com.avistay.app</string>
+    <string name="app_name">NaivaStay</string>
+    <string name="title_activity_main">NaivaStay</string>
+    <string name="package_name">com.naivastay.app</string>
+    <string name="custom_url_scheme">com.naivastay.app</string>
 </resources>

@@ -211,3 +211,39 @@ async def test_site_notice_is_public(client, db, reset_settings):
     assert (await client.get("/api/site")).json()["site_notice"].startswith("M-Pesa")
     me = (await client.get("/api/auth/me", cookies=auth_cookies(boss))).json()
     assert me["is_superadmin"] is True
+
+
+@pytest.mark.asyncio
+async def test_dashboard_shows_paystack(client, db, monkeypatch):
+    """The overview says whether Paystack is on and splits money in by M-Pesa vs Paystack;
+    the payments list can show Paystack only."""
+    from app.core.config import settings
+    admin = await _user(db, "admin")
+
+    def overview():
+        return client.get("/api/admin/console/overview", cookies=auth_cookies(admin))
+
+    monkeypatch.setattr(settings, "PAYSTACK_SECRET_KEY", "")
+    assert (await overview()).json()["guest_payments"]["paystack"] == "off"
+    monkeypatch.setattr(settings, "PAYSTACK_SECRET_KEY", "sk_test_x")
+    before = (await overview()).json()["guest_payments"]
+    assert before["paystack"] == "test"
+
+    booking_id, _ = await _booking(db, paid=12_000)                     # M-Pesa charge
+    db.add(Payment(booking_id=booking_id, type="charge", method="card", amount=20_000, fee_amount=700,
+                   status="completed", provider_request_id=f"NSC-{uuid.uuid4()}"))
+    await db.commit()
+
+    after = (await overview()).json()["guest_payments"]["last_30_days"]
+    was = before["last_30_days"]
+    assert after["mpesa"]["amount"] - was["mpesa"]["amount"] == 12_000
+    assert after["card"]["amount"] - was["card"]["amount"] == 20_000
+    assert after["card"]["card_fees"] - was["card"]["card_fees"] == 700
+    assert after["card"]["count"] - was["card"]["count"] == 1
+
+    rows = (await client.get("/api/admin/console/payments", params={"method": "card"},
+                             cookies=auth_cookies(admin))).json()
+    assert rows and all(r["method"] == "card" for r in rows)
+
+    monkeypatch.setattr(settings, "PAYSTACK_SECRET_KEY", "sk_live_x")
+    assert (await overview()).json()["guest_payments"]["paystack"] == "live"

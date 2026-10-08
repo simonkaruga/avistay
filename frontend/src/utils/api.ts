@@ -1,5 +1,5 @@
 /**
- * The one way to call the Avistay API — website and mobile app.
+ * The one way to call the NaivaStay API — website and mobile app.
  *
  * - Website: same-origin `/api/...` with httpOnly cookies.
  * - App: `${VITE_API_URL}/api/...` with a Bearer token from secure storage.

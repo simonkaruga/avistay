@@ -75,7 +75,7 @@ def validate_attachments(urls: list[str] | None) -> list[str]:
     if len(urls) > MAX_ATTACHMENTS:
         raise DisputeError(f"Attach at most {MAX_ATTACHMENTS} photos")
     if not all(is_our_media_url(u) for u in urls):
-        raise DisputeError("Photos must be uploaded through Avistay")
+        raise DisputeError("Photos must be uploaded through NaivaStay")
     return urls
 
 

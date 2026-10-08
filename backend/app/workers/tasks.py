@@ -50,30 +50,32 @@ async def _send_booking_notifications_async(booking_id: str) -> None:
                 f"💰 Paid: KES {booking.total_amount:,}\n\n"
                 f"🔐 *Check-in Code: {booking.checkin_code}*\n"
                 f"Show this to the owner on arrival.\n\n"
-                f"Avistay only pays the host {S().guest_dispute_hours}h after you check in. Report any problem in the app.\n"
+                f"NaivaStay only pays the host {S().guest_dispute_hours}h after you check in. Report any problem in the app.\n"
                 + (f"Your KES {booking.deposit_amount:,} deposit comes back {S().deposit_hold_days} day(s) after check-out.\n"
                    if booking.deposit_status == "held" else "")
-                + "Avistay 🌿"
+                + "NaivaStay 🌿"
             )
             await _notify(guest, sms, wa)
 
         if owner and prop:
             nights = (booking.check_out - booking.check_in).days
-            from app.services.payments import owner_payout_amount
-            payout = owner_payout_amount(booking)
+            from app.services.payments import host_net_payout
+            payout = host_net_payout(booking)
+            who = f"{guest.name or 'Guest'}, {guest.phone or 'no phone'}" if guest else "Guest"
             sms = (
                 f"New booking! {prop.title}. "
-                f"{booking.check_in} to {booking.check_out} ({nights} nights). "
+                f"{booking.check_in} to {booking.check_out} ({nights} nights), {booking.guests} guest(s): {who}. "
                 f"KES {payout:,} paid to you {S().guest_dispute_hours}h after check-in."
             )
             wa = (
                 f"🎉 *New Booking!*\n\n"
                 f"🏡 *{prop.title}*\n"
                 f"📅 {booking.check_in} → {booking.check_out} ({nights} night{'s' if nights != 1 else ''})\n"
+                f"👤 {who} · {booking.guests} guest(s)\n"
                 f"💵 Your payout: *KES {payout:,}*\n\n"
                 f"Sent to your M-Pesa {S().guest_dispute_hours}h after the guest checks in.\n"
                 f"Log in to your dashboard to manage this booking.\n"
-                f"Avistay Host 🌿"
+                f"NaivaStay Host 🌿"
             )
             await _notify(owner, sms, wa)
 
@@ -183,12 +185,12 @@ async def _send_b2c_async(payment_id: str) -> None:
 
         if payment.type in GUEST_B2C_TYPES:
             what = "deposit" if payment.type == "deposit_refund" else "refund"
-            await _send_sms(phone, f"Your Avistay {what} of KES {payment.amount:,} has been sent to M-Pesa.")
+            await _send_sms(phone, f"Your NaivaStay {what} of KES {payment.amount:,} has been sent to M-Pesa.")
         elif payment.type == "agent_commission":
-            await _send_sms(phone, f"Avistay agent commission of KES {payment.amount:,} sent to your M-Pesa "
+            await _send_sms(phone, f"NaivaStay agent commission of KES {payment.amount:,} sent to your M-Pesa "
                                    f"(booking {booking.id[:8].upper()}).")
         else:
-            await _send_sms(phone, f"Avistay payout of KES {payment.amount:,} sent to your M-Pesa "
+            await _send_sms(phone, f"NaivaStay payout of KES {payment.amount:,} sent to your M-Pesa "
                                    f"(booking {booking.check_in} to {booking.check_out}).")
 
 
@@ -246,7 +248,7 @@ async def _send_card_refund(db, booking, payment, charge) -> None:
                     {"payment_id": payment.id, "amount": payment.amount, "refund_id": refund_id})
     guest = await db.get(User, booking.guest_id)
     if guest and guest.phone:
-        await _send_sms(guest.phone, f"Avistay: your {what.lower()} of KES {payment.amount:,} is on its way back "
+        await _send_sms(guest.phone, f"NaivaStay: your {what.lower()} of KES {payment.amount:,} is on its way back "
                                      f"to your card. Banks usually show it within 5-10 working days.")
 
 
@@ -411,6 +413,35 @@ async def _release_due_async() -> None:
         send_b2c_payment.delay(payment_id)
 
 
+# ── New message notifications ─────────────────────────────────────────────────
+
+@celery.task(bind=True, max_retries=2)
+def notify_new_message(self, booking_id: str, recipient_id: str, sender_role: str) -> None:
+    try:
+        asyncio.run(_notify_new_message_async(booking_id, recipient_id, sender_role))
+    except Exception as exc:
+        raise self.retry(exc=exc, countdown=60)
+
+
+async def _notify_new_message_async(booking_id: str, recipient_id: str, sender_role: str) -> None:
+    from app.core.config import settings
+    from app.core.database import AsyncSessionLocal
+    from app.models.models import Booking, Property, User
+    # One alert per conversation per 30 minutes: a chat shouldn't become an SMS storm.
+    if not await _throttle(f"msgnote:{booking_id}:{recipient_id}", 1800):
+        return
+    async with AsyncSessionLocal() as db:
+        booking = await db.get(Booking, booking_id)
+        user = await db.get(User, recipient_id)
+        prop = await db.get(Property, booking.property_id) if booking else None
+        if not booking or not user or not prop:
+            return
+        who = {"guest": "your guest", "host": "your host", "admin": "the NaivaStay team"}.get(sender_role, "someone")
+        path = f"/owner/messages/{booking_id}" if recipient_id == prop.owner_id else f"/messages/{booking_id}"
+        await _notify(user, f"NaivaStay: new message from {who} about {prop.title}. "
+                            f"Read and reply: {settings.FRONTEND_URL}{path}")
+
+
 # ── Dispute + cancellation notifications ──────────────────────────────────────
 
 @celery.task(bind=True, max_retries=3)
@@ -441,10 +472,10 @@ async def _notify_dispute_async(dispute_id: str, event: str, actor_role: str) ->
     link = f"{settings.FRONTEND_URL}/disputes/{d.id}"
     reason = REASON_LABELS.get(d.reason, d.reason)
     texts = {
-        "opened": f"Avistay: a problem was reported on {p.title} ({reason}). Reply here: {link}",
-        "message": f"Avistay: new message on your case for {p.title}: {link}",
-        "withdrawn": f"Avistay: the case for {p.title} was withdrawn. {link}",
-        "resolved": f"Avistay: a decision was made on your case for {p.title}. Details: {link}",
+        "opened": f"NaivaStay: a problem was reported on {p.title} ({reason}). Reply here: {link}",
+        "message": f"NaivaStay: new message on your case for {p.title}: {link}",
+        "withdrawn": f"NaivaStay: the case for {p.title} was withdrawn. {link}",
+        "resolved": f"NaivaStay: a decision was made on your case for {p.title}. Details: {link}",
     }
     recipients = {"guest": b.guest_id, "owner": p.owner_id}
     for role, user_id in recipients.items():
@@ -489,7 +520,7 @@ async def _notify_owner_cancel_async(booking_id: str, listing_paused: bool) -> N
                       f"You'll get a full refund to M-Pesa. Find another stay: {settings.FRONTEND_URL}/search")
     if owner and listing_paused:
         await _notify(owner,
-                      f"Avistay: {p.title} has been paused after repeated cancellations. "
+                      f"NaivaStay: {p.title} has been paused after repeated cancellations. "
                       f"Our team will contact you to review it.")
 
 
@@ -556,84 +587,97 @@ def sync_all_icals() -> None:
     asyncio.run(_sync_icals_async())
 
 
+ICAL_HORIZON_DAYS = 730   # never store more than two years ahead (stops runaway calendars)
+
+
 async def _sync_icals_async() -> None:
-    from sqlalchemy import select
-    from datetime import date, datetime, timezone
+    """Keep each home's NaivaStay calendar in step with its Airbnb/Booking.com/VRBO
+    calendars. Per home, from today on:
+      * nights booked elsewhere are blocked here (including nights the host had opened);
+      * nights no longer booked elsewhere are opened again (a cancellation there);
+      * nights booked elsewhere AND on NaivaStay are a real double booking: the host
+        and the NaivaStay team are alerted straight away.
+    If any of a home's calendars can't be read, nothing is opened that round
+    (better to block for 10 more minutes than to sell a night twice)."""
+    from collections import defaultdict
+    from datetime import datetime, timedelta, timezone
+    from sqlalchemy import select, update
+    from app.core.audit_log import log_event
     from app.core.database import AsyncSessionLocal
-    from app.models.models import ExternalCalendar, Property, Availability, Booking, User
+    from app.core.timeutil import today_eat
+    from app.models.models import Availability, Booking, ExternalCalendar, Property, User
     from app.services.ical import parse_remote_ical
 
+    today = today_eat()
+    horizon = today + timedelta(days=ICAL_HORIZON_DAYS)
+
     async with AsyncSessionLocal() as db:
-        # Fetch all external calendar URLs across all active properties
-        cals_result = await db.execute(
+        cals = (await db.execute(
             select(ExternalCalendar).join(Property, Property.id == ExternalCalendar.property_id)
             .where(Property.active == True)
-        )
-        calendars = cals_result.scalars().all()
+        )).scalars().all()
+    by_property: dict[str, list] = defaultdict(list)
+    for c in cals:
+        by_property[c.property_id].append(c)
 
-        for cal in calendars:
+    for property_id, prop_cals in by_property.items():
+        outside: set = set()
+        all_read = True
+        read_ok: list[str] = []
+        for cal in prop_cals:
             try:
-                blocked_ranges = await parse_remote_ical(cal.ical_url)
-                newly_blocked: list[date] = []
+                for start, end in await parse_remote_ical(cal.ical_url):
+                    d = max(start, today)
+                    while d < min(end, horizon):
+                        outside.add(d)
+                        d += timedelta(days=1)
+                read_ok.append(cal.id)
+            except Exception as exc:
+                all_read = False
+                print(f"[iCal sync] Could not read {cal.platform} calendar {cal.id}: {exc}")
 
-                for start, end in blocked_ranges:
-                    current = start
-                    while current < end:
-                        existing = (await db.execute(
-                            select(Availability).where(
-                                Availability.property_id == cal.property_id,
-                                Availability.date == current,
-                            )
-                        )).scalar_one_or_none()
+        async with AsyncSessionLocal() as db:
+            rows = {r.date: r for r in (await db.execute(
+                select(Availability).where(Availability.property_id == property_id, Availability.date >= today)
+            )).scalars().all()}
+            clashes: dict[str, list] = defaultdict(list)
+            for d in sorted(outside):
+                row = rows.get(d)
+                if row is None:
+                    db.add(Availability(property_id=property_id, date=d, is_blocked=True, source="ical"))
+                elif row.booking_id:                       # booked on NaivaStay too
+                    clashes[row.booking_id].append(d)
+                elif row.source != "booking":
+                    row.is_blocked, row.source = True, "ical"
+            if all_read:
+                for d, row in rows.items():
+                    if row.source == "ical" and d not in outside:
+                        await db.delete(row)               # cancelled on the other site: open again
 
-                        if not existing:
-                            db.add(Availability(
-                                property_id=cal.property_id,
-                                date=current,
-                                is_blocked=True,
-                                source="ical",
-                            ))
-                            newly_blocked.append(current)
-                        current = date.fromordinal(current.toordinal() + 1)
+            # Record which calendars were read (only those that actually loaded).
+            if read_ok:
+                await db.execute(update(ExternalCalendar).where(ExternalCalendar.id.in_(read_ok))
+                                 .values(last_synced_at=datetime.now(timezone.utc)))
+            await db.commit()
 
-                # Conflict detection: check if any newly blocked date overlaps a confirmed booking
-                if newly_blocked:
-                    min_date = min(newly_blocked)
-                    max_date = max(newly_blocked)
-                    conflict_bookings = (await db.execute(
-                        select(Booking).where(
-                            Booking.property_id == cal.property_id,
-                            Booking.status.in_(["confirmed", "pending"]),
-                            Booking.check_in <= max_date,
-                            Booking.check_out > min_date,
-                        )
-                    )).scalars().all()
-
-                    for booking in conflict_bookings:
-                        # Alert the property owner via WhatsApp + SMS
-                        prop = (await db.execute(
-                            select(Property).where(Property.id == cal.property_id)
-                        )).scalar_one_or_none()
-                        if prop:
-                            owner = (await db.execute(
-                                select(User).where(User.id == prop.owner_id)
-                            )).scalar_one_or_none()
-                            if owner:
-                                msg = (
-                                    f"⚠️ *Double-booking alert: {prop.title}*\n\n"
-                                    f"A guest just booked *{cal.platform.title()}* for dates "
-                                    f"{booking.check_in} → {booking.check_out}, "
-                                    f"which overlap with booking #{booking.id[:8].upper()} on Avistay.\n\n"
-                                    f"Please cancel one booking immediately and contact Avistay support: "
-                                    f"support@avistay.com"
-                                )
-                                await _notify(owner, msg)
-
-                cal.last_synced_at = datetime.now(timezone.utc)
-                await db.commit()
-
-            except Exception as e:
-                print(f"[iCal sync] Failed for calendar {cal.id} ({cal.platform}): {e}")
+            if not clashes:
+                continue
+            prop = await db.get(Property, property_id)
+            owner = await db.get(User, prop.owner_id) if prop else None
+            for booking_id, days in clashes.items():
+                booking = await db.get(Booking, booking_id)
+                if not booking or booking.status not in ("pending", "confirmed", "checked_in"):
+                    continue
+                if not await _throttle(f"dbl:{booking_id}:{min(days)}", 12 * 3600):
+                    continue
+                nights = ", ".join(d.strftime("%a %d %b") for d in days[:5]) + (" …" if len(days) > 5 else "")
+                await log_event(db, "double_booking_detected", booking.id, None,
+                                {"property_id": property_id, "nights": [d.isoformat() for d in days]})
+                if owner and prop:
+                    await _notify(owner,
+                        f"⚠️ Double booking at {prop.title}: {nights} is booked on NaivaStay "
+                        f"(booking {booking.id[:8].upper()}, {booking.check_in} to {booking.check_out}) "
+                        f"AND on another site. Cancel the other booking now, or contact NaivaStay support.")
 
 
 # ── Refund processing ────────────────────────────────────────────────────────
@@ -732,7 +776,7 @@ async def _send_reminders_async() -> None:
                     f"🏡 *{prop.title}*\n\n"
                     f"🔐 Your check-in code: *{booking.checkin_code}*\n\n"
                     + (f"📍 Directions: {prop.landmark_instructions}\n\n" if prop.landmark_instructions else "")
-                    + "See you in Naivasha! 🌿\nAvistay"
+                    + "See you in Naivasha! 🌿\nNaivaStay"
                 )
                 await _notify(guest, sms, wa)
 

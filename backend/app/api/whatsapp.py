@@ -6,7 +6,7 @@ without opening an app. Useful when they get an Airbnb notification.
 Supported commands (case-insensitive):
 
   BLOCK <property-code> <check-in YYYY-MM-DD> <check-out YYYY-MM-DD>
-      → Instantly blocks those dates on Avistay
+      → Instantly blocks those dates on NaivaStay
       → Replies with confirmation
 
   UNBLOCK <property-code> <check-in> <check-out>
@@ -18,10 +18,11 @@ Supported commands (case-insensitive):
 The property-code is the first 8 chars of the property UUID (shown in the
 owner dashboard). Owners can also use the full UUID.
 """
+import hmac
 import re
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Form, HTTPException
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -113,7 +114,7 @@ async def _handle_command(sender: str, text: str) -> str:
             await db.commit()
             return (
                 f"✅ Done! *{prop.title}*: {check_in} to {check_out} ({nights} night{'s' if nights != 1 else ''}) "
-                f"is now blocked on Avistay. "
+                f"is now blocked on NaivaStay. "
                 f"No new bookings can come in for those dates."
             )
 
@@ -183,7 +184,7 @@ async def _handle_command(sender: str, text: str) -> str:
 
 def _help_text() -> str:
     return (
-        "*Avistay owner commands:*\n\n"
+        "*NaivaStay owner commands:*\n\n"
         "BLOCK <code> <from> <to>\n"
         "  Block dates when you get an Airbnb booking\n"
         "  _e.g. BLOCK abc12345 2026-07-01 2026-07-05_\n\n"
@@ -197,13 +198,24 @@ def _help_text() -> str:
 
 # ── Africa's Talking incoming webhook ────────────────────────────────────────
 
-@router.post("/incoming")
+def _check_secret(secret: str) -> None:
+    """Africa's Talking doesn't sign its webhooks, and the sender number in the body
+    can be faked. A secret in the URL (only AT knows it) proves the call is real.
+    No secret configured = commands are off."""
+    from app.core.config import settings
+    expected = settings.AT_WEBHOOK_SECRET
+    if not expected or not hmac.compare_digest(secret.encode(), expected.encode()):
+        raise HTTPException(status_code=404, detail="Not found")
+
+
+@router.post("/incoming/{secret}")
 async def whatsapp_incoming(
-    request: Request,
+    secret: str,
     from_: str = Form(alias="from", default=""),
     text:   str = Form(default=""),
 ):
     """Africa's Talking posts to this URL when owner sends us a WhatsApp message."""
+    _check_secret(secret)
     sender = from_.strip()
     if not sender or not text:
         return PlainTextResponse("ok")
@@ -227,23 +239,21 @@ async def whatsapp_incoming(
 
 # ── SMS fallback (owners without WhatsApp) ────────────────────────────────────
 
-@router.post("/sms-incoming")
+@router.post("/sms-incoming/{secret}")
 async def sms_incoming(
+    secret: str,
     from_: str = Form(alias="from", default=""),
     text:  str = Form(default=""),
 ):
     """Africa's Talking SMS incoming — same command syntax works over plain SMS."""
+    _check_secret(secret)
     sender = from_.strip()
     if not sender or not text:
         return PlainTextResponse("ok")
 
     reply = await _handle_command(sender, text.strip())
 
-    from app.core.config import settings
-    import africastalking
-    if settings.AT_API_KEY:
-        africastalking.initialize(settings.AT_USERNAME, settings.AT_API_KEY)
-        sms = africastalking.SMS
-        sms.send(reply[:160], [sender])
+    from app.api.auth import _send_sms   # same sender as login codes; no SDK needed
+    await _send_sms(sender, reply[:160])
 
     return PlainTextResponse("ok")

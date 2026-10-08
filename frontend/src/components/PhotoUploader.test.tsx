@@ -51,7 +51,7 @@ beforeEach(() => {
   URL.createObjectURL = vi.fn((f: Blob) => `blob:${(f as File).name}`);
   URL.revokeObjectURL = vi.fn();
   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
-    cloud_name: "staycloud", api_key: "123", timestamp: 1, signature: "sig", folder: "avistay/listings/u1",
+    cloud_name: "staycloud", api_key: "123", timestamp: 1, signature: "sig", folder: "naivastay/listings/u1",
   }), { status: 200 })));
 });
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); lowRes.value = false; });
@@ -67,7 +67,7 @@ describe("PhotoUploader", () => {
     const first = live()[0];
     expect(first.url).toBe("https://api.cloudinary.com/v1_1/staycloud/image/upload");
     expect(first.body?.get("signature")).toBe("sig");
-    expect(first.body?.get("folder")).toBe("avistay/listings/u1");
+    expect(first.body?.get("folder")).toBe("naivastay/listings/u1");
     expect(first.body?.get("upload_preset")).toBeNull();
 
     await act(async () => first.succeed("https://res.cloudinary.com/staycloud/image/upload/a.jpg"));

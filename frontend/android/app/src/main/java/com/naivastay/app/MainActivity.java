@@ -1,4 +1,4 @@
-package com.avistay.app;
+package com.naivastay.app;
 
 import com.getcapacitor.BridgeActivity;
 

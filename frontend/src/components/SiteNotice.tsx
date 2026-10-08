@@ -4,7 +4,7 @@ import { apiJson } from "../utils/api";
 
 export interface SiteInfo { support_phone: string; support_email: string; site_notice: string | null; card_payments?: boolean; card_surcharge_pct?: number;
   guest_dispute_hours?: number; deposit_hold_days?: number; service_fee_kes?: number; tourism_levy_pct?: number;
-  booking_hold_minutes?: number; default_commission_pct?: number;
+  booking_hold_minutes?: number;
   google_login?: boolean }
 
 /** Support contacts and the optional notice set in Admin → Settings. */
@@ -22,14 +22,22 @@ export function useSite() {
   const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
   return {
     supportPhone: phone,
-    supportEmail: d?.support_email ?? "hello@avistay.com",
+    supportEmail: d?.support_email ?? "hello@naivastay.com",
     whatsapp: (text?: string) => `https://wa.me/${phone.replace(/\D/g, "")}${text ? `?text=${encodeURIComponent(text)}` : ""}`,
     serviceFee: d?.service_fee_kes ?? 300,
     levyPct: d?.tourism_levy_pct ?? 2,
-    commissionPct: d?.default_commission_pct ?? 10,
     holdMinutes: plural(d?.booking_hold_minutes ?? 15, "minute"),
     depositDays: plural(d?.deposit_hold_days ?? 2, "day"),
   };
+}
+
+/** Host commission % for the Become-a-host page only. Guests never see it. */
+export function useHostCommissionPct(): number {
+  const { data } = useQuery({
+    queryKey: ["site", "hosting"], queryFn: () => apiJson<{ commission_pct: number }>("/site/hosting"),
+    staleTime: 5 * 60_000, retry: false,
+  });
+  return data?.commission_pct ?? 10;
 }
 
 /** "24 hours": how long after check-in the host is paid (Admin → Settings). */

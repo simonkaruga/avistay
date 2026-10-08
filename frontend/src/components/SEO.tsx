@@ -7,12 +7,12 @@
  */
 import { Helmet } from "react-helmet-async";
 
-const SITE      = "Avistay";
-const BASE_URL  = "https://avistay.com";
+const SITE      = "NaivaStay";
+const BASE_URL  = "https://naivastay.com";
 const DEFAULT_DESC =
   "Beautiful stays. Better experiences. Book holiday homes, cottages, villas & campsites in Naivasha, Kenya. " +
   "Secure M-Pesa and card payments. Verified listings. Instant confirmation.";
-const DEFAULT_IMG = `${BASE_URL}/icons/icon-512.png`;
+const DEFAULT_IMG = `${BASE_URL}/og-image.png`;
 
 interface Props {
   title?:       string;   // page-specific title (site name is appended automatically)

@@ -1,5 +1,5 @@
 /**
- * Operator console — everything the team needs to run Avistay without a developer.
+ * Operator console — everything the team needs to run NaivaStay without a developer.
  * Backend: /api/admin/console/*. Super-admin-only actions are enforced server-side;
  * the UI just hides what the person can't do.
  */
@@ -9,7 +9,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { Link } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import {
-  Banknote, BadgeCheck, CalendarCheck, Download, Gavel, Home, Lock, Pencil, RotateCcw,
+  AlertTriangle, Banknote, BadgeCheck, CalendarCheck, Download, Gavel, Home, Lock, Pencil, RotateCcw,
   Search, ShieldCheck, Tag, Users, X,
 } from "lucide-react";
 import { api, apiJson } from "../../utils/api";
@@ -97,10 +97,12 @@ function ask(question: string, min = 5): string | null {
 
 // ── Overview ──────────────────────────────────────────────────────────────────
 
+interface MoneyIn { count: number; amount: number; card_fees?: number }
 interface OverviewData {
-  last_30_days: { bookings: number; room_value: number; revenue: number; levy_collected: number };
+  guest_payments?: { paystack: "off" | "test" | "live"; last_30_days: { mpesa: MoneyIn; card: MoneyIn } };
+  last_30_days:{ bookings: number; room_value: number; revenue: number; levy_collected: number };
   today: { check_ins: number; new_bookings: number };
-  needs_attention: { listings_awaiting_approval: number; open_disputes: number; payments_processing: number; payments_failed: number };
+  needs_attention: { listings_awaiting_approval: number; open_disputes: number; payments_processing: number; payments_failed: number; double_bookings?: number };
   totals: { users: number; hosts: number; live_listings: number };
 }
 
@@ -128,6 +130,12 @@ export function Overview() {
             <Tile label="Payments failed" value={d.needs_attention.payments_failed} to="/admin/payments?status=failed" alert={d.needs_attention.payments_failed > 0} />
             <Tile label="Payments processing" value={d.needs_attention.payments_processing} to="/admin/payments?status=processing" />
           </div>
+          {(d.needs_attention.double_bookings ?? 0) > 0 && (
+            <Link to="/admin/audit?event=double_booking" className="flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <span><b>{d.needs_attention.double_bookings} possible double booking{d.needs_attention.double_bookings === 1 ? "" : "s"}</b> in the last 7 days (Airbnb/Booking.com clash). Check with the host.</span>
+            </Link>
+          )}
           <h2 className="text-sm font-semibold text-(--text-primary)">Today</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Tile label="Check-ins today" value={d.today.check_ins} />
@@ -139,9 +147,30 @@ export function Overview() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Tile label="Bookings" value={d.last_30_days.bookings} />
             <Tile label="Room value" value={kes(d.last_30_days.room_value)} />
-            <Tile label="Avistay revenue" value={kes(d.last_30_days.revenue)} />
+            <Tile label="NaivaStay revenue" value={kes(d.last_30_days.revenue)} />
             <Tile label="Tourism levy to remit" value={kes(d.last_30_days.levy_collected)} to="/admin/reports" />
           </div>
+          {d.guest_payments && (() => {
+            const g = d.guest_payments, m = g.last_30_days;
+            const count = (n: number) => `${n} payment${n === 1 ? "" : "s"}`;
+            return (
+              <>
+                <h2 className="text-sm font-semibold text-(--text-primary)">Guest payments (last 30 days)</h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <Tile label="Paystack" value={g.paystack === "live" ? "On" : g.paystack === "test" ? "On · test mode" : "Off"} />
+                  <Tile label={`Paid by M-Pesa · ${count(m.mpesa.count)}`} value={kes(m.mpesa.amount)} to="/admin/payments?type=charge&method=mpesa" />
+                  <Tile label={`Paid with Paystack · ${count(m.card.count)}`} value={kes(m.card.amount)} to="/admin/payments?type=charge&method=card" />
+                  <Tile label="Card fees collected" value={kes(m.card.card_fees)} />
+                </div>
+                {g.paystack === "off" && (
+                  <Notice tone="info">Card payments are off, so guests only see M-Pesa. To switch Paystack on, add <code>PAYSTACK_SECRET_KEY</code> to the backend settings on Railway and set the webhook in the Paystack dashboard to <code>https://api.naivastay.com/api/payments/paystack/webhook</code>.</Notice>
+                )}
+                {g.paystack === "test" && (
+                  <Notice tone="info">Paystack is in <b>test mode</b>: card payments use Paystack's test cards and no real money moves. Switch to the live key (<code>sk_live_…</code>) before launch.</Notice>
+                )}
+              </>
+            );
+          })()}
         </>
       )}
     </Page>
@@ -234,6 +263,7 @@ export function UsersAdmin() {
 interface ListingRow {
   id: string; title: string; type: string; area: string | null; price_per_night: number; active: boolean;
   verified_tier: number; photos: number; cover: string | null; owner_name: string | null; owner_phone: string | null;
+  missing?: string[];
 }
 
 export function ListingsAdmin() {
@@ -279,13 +309,16 @@ export function ListingsAdmin() {
               </p>
             </div>
             <Pill s={p.active ? "live" : p.verified_tier === 0 ? "pending" : "paused"} />
+            {!p.active && (p.missing?.length ?? 0) > 0 && (
+              <span className="basis-full text-xs text-amber-700">Can't go live yet: needs {p.missing!.join(" and ")}. Ask the host to add it under More → Tax &amp; licence.</span>
+            )}
             <button className={btnGhost} onClick={() => setEditing(p.id)}><Pencil className="w-3.5 h-3.5" aria-hidden="true" />Edit</button>
             <Link to={`/property/${p.id}`} className={btnGhost} target="_blank">View</Link>
             {p.active ? (
               <button className={btnDanger} onClick={() => { const r = ask("Why pause this listing? (the host sees this)"); if (r) setStatus.mutate({ id: p.id, active: false, reason: r }); }}>Pause</button>
             ) : (
-              <button className={btnPrimary} disabled={p.photos === 0}
-                title={p.photos === 0 ? "Add photos first" : undefined}
+              <button className={btnPrimary} disabled={p.photos === 0 || (p.missing?.length ?? 0) > 0}
+                title={p.photos === 0 ? "Add photos first" : p.missing?.length ? `Needs ${p.missing.join(" and ")}` : undefined}
                 onClick={() => setStatus.mutate({ id: p.id, active: true })}>
                 {p.verified_tier === 0 ? "Approve & go live" : "Put live again"}
               </button>
@@ -428,6 +461,7 @@ function BookingPayments({ id, b }: { id: string; b: BookingRow }) {
       <p className="text-(--text-muted)">
         Booked {when(b.created_at)} · deposit {b.deposit_status} {b.mpesa_ref && <>· M-Pesa <span className="font-mono">{b.mpesa_ref}</span></>}
         {b.cancelled_by && <> · cancelled by {b.cancelled_by}</>} · <Link className="underline" to={`/admin/audit?entity=${id}`}>History</Link>
+        {" "}· <Link className="underline" to={`/messages/${id}`}>Guest–host messages</Link>
       </p>
       {q.data?.map(p => (
         <p key={p.id} className="flex flex-wrap gap-2 items-center">
@@ -447,12 +481,14 @@ interface PaymentRow { id: string; booking_id: string; type: string; amount: num
 export function PaymentsAdmin() {
   const me = useMe().data;
   const qc = useQueryClient();
-  const [status, setStatus] = useState(new URLSearchParams(location.search).get("status") ?? "");
-  const [type, setType] = useState("");
+  const initial = new URLSearchParams(location.search);
+  const [status, setStatus] = useState(initial.get("status") ?? "");
+  const [type, setType] = useState(initial.get("type") ?? "");
+  const [method, setMethod] = useState(initial.get("method") ?? "");
   const [page, setPage] = useState(1);
   const q = useQuery({
-    queryKey: ["console-payments", status, type, page],
-    queryFn: () => apiJson<PaymentRow[]>(`${C}/payments?${new URLSearchParams({ ...(status ? { status } : {}), ...(type ? { type } : {}), page: String(page) })}`),
+    queryKey: ["console-payments", status, type, method, page],
+    queryFn: () => apiJson<PaymentRow[]>(`${C}/payments?${new URLSearchParams({ ...(status ? { status } : {}), ...(type ? { type } : {}), ...(method ? { method } : {}), page: String(page) })}`),
     placeholderData: keepPreviousData,
   });
   const done = () => { qc.invalidateQueries({ queryKey: ["console-payments"] }); qc.invalidateQueries({ queryKey: ["console-overview"] }); };
@@ -472,7 +508,7 @@ export function PaymentsAdmin() {
 
   return (
     <Page title="Payments" Icon={Banknote}
-      intro={<>Payouts to hosts and refunds to guests. Card bookings are refunded to the card through Paystack; everything else goes by M-Pesa. <b>Failed</b> ones can be sent again. <b>Processing</b> ones may already have been paid. Check the M-Pesa portal or Paystack dashboard, then record the outcome (super admin).</>}>
+      intro={<>Guest payments (M-Pesa or Paystack), payouts to hosts and refunds to guests. Paystack bookings are refunded to the card through Paystack; everything else goes by M-Pesa. <b>Failed</b> ones can be sent again. <b>Processing</b> ones may already have been paid. Check the M-Pesa portal or Paystack dashboard, then record the outcome (super admin).</>}>
       <div className="flex flex-wrap gap-2">
         <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); }} className={`${inputCls} w-auto`} aria-label="Status">
           <option value="">Any status</option>{["pending", "processing", "completed", "failed"].map(s => <option key={s} value={s}>{s}</option>)}
@@ -481,13 +517,18 @@ export function PaymentsAdmin() {
           <option value="">Any type</option>
           {[["charge", "Guest payment"], ["payout", "Host payout"], ["refund", "Refund"], ["deposit_refund", "Deposit return"], ["claim_payout", "Damage award"], ["agent_commission", "Agent commission"]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
+        <select value={method} onChange={e => { setMethod(e.target.value); setPage(1); }} className={`${inputCls} w-auto`} aria-label="Method">
+          <option value="">M-Pesa and Paystack</option>
+          <option value="mpesa">M-Pesa only</option>
+          <option value="card">Paystack only</option>
+        </select>
       </div>
       <State q={q} empty="No payments match." />
       <ul className="space-y-2">
         {q.data?.map(p => (
           <li key={p.id} className="bg-(--bg-surface) rounded-2xl p-3 flex flex-wrap items-center gap-3 text-sm">
             <span className="capitalize w-32 text-(--text-primary) font-medium">{p.type.replace("_", " ")}
-              <span className="block text-[11px] font-normal text-(--text-muted) normal-case">{p.method === "card" ? "Card (Paystack)" : "M-Pesa"}</span></span>
+              <span className="block text-[11px] font-normal text-(--text-muted) normal-case">{p.method === "card" ? "Paystack (card)" : "M-Pesa"}</span></span>
             <span className="w-28 font-semibold text-(--text-primary)">{kes(p.amount)}
               {!!p.card_fee && <span className="block text-[11px] font-normal text-(--text-muted)">+ {kes(p.card_fee)} card fee</span>}</span>
             <Pill s={p.status} />
@@ -531,7 +572,7 @@ export function PromosAdmin() {
   const live = (p: Promo) => p.used_count < p.max_uses && (!p.expires_at || new Date(p.expires_at) > new Date());
 
   return (
-    <Page title="Promo codes" Icon={Tag} intro="A fixed KES discount off the booking. Avistay pays for the discount. Hosts still get their full payout.">
+    <Page title="Promo codes" Icon={Tag} intro="A fixed KES discount off the booking. NaivaStay pays for the discount. Hosts still get their full payout.">
       <form className="bg-(--bg-surface) rounded-2xl p-4 grid grid-cols-2 md:grid-cols-5 gap-2 items-end" onSubmit={e => { e.preventDefault(); create.mutate(); }}>
         <label className="col-span-2 md:col-span-1"><span className="text-xs text-(--text-muted)">Code</span>
           <input required pattern="[A-Za-z0-9_\-]{3,30}" value={form.code} onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="LAKE1000" className={`${inputCls} font-mono`} /></label>
@@ -673,7 +714,7 @@ export function SettingsAdmin() {
 interface AuditRow { id: string; event: string; entity_id: string; actor: string; details: Record<string, unknown> | null; at: string }
 
 export function AuditAdmin() {
-  const [event, setEvent] = useState("");
+  const [event, setEvent] = useState(new URLSearchParams(location.search).get("event") ?? "");
   const [entity, setEntity] = useState(new URLSearchParams(location.search).get("entity") ?? "");
   const [page, setPage] = useState(1);
   const q = useQuery({
@@ -723,7 +764,7 @@ export function ReportsAdmin() {
       const res = await api(`${C}/reports/levy?month=${month}&format=csv`);
       if (!res.ok) throw new Error("Download failed");
       const url = URL.createObjectURL(await res.blob());
-      Object.assign(document.createElement("a"), { href: url, download: `avistay-tourism-levy-${month}.csv` }).click();
+      Object.assign(document.createElement("a"), { href: url, download: `naivastay-tourism-levy-${month}.csv` }).click();
       URL.revokeObjectURL(url);
     } catch (e) { window.alert((e as Error).message); } finally { setDownloading(false); }
   }
@@ -763,8 +804,66 @@ export function ReportsAdmin() {
         </>
       )}
       <Notice tone="warning" title="Before launch">
-        Confirm with your accountant how Avistay registers as the collecting agent for the levy, and that the 2% is charged on the right base.
+        Confirm with your accountant how NaivaStay registers as the collecting agent for the levy, and that the 2% is charged on the right base.
       </Notice>
+    </Page>
+  );
+}
+
+
+// ── Withholding tax report ───────────────────────────────────────────────────
+
+interface WhtReport {
+  month: string;
+  totals: { payouts: number; gross: number; tax_withheld: number; missing_pins: number };
+  lines: { date: string; host: string; kra_pin: string; property: string; booking: string; gross: number; tax_withheld: number; paid_to_host: number; status: string }[];
+}
+
+export function WithholdingReport() {
+  const lastMonth = (() => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return d.toISOString().slice(0, 7); })();
+  const [month, setMonth] = useState(lastMonth);
+  const q = useQuery({ queryKey: ["console-wht", month], queryFn: () => apiJson<WhtReport>(`${C}/reports/withholding?month=${month}`), enabled: /^\d{4}-\d{2}$/.test(month) });
+  async function download() {
+    const res = await api(`${C}/reports/withholding?month=${month}&format=csv`);
+    if (!res.ok) { window.alert("Download failed"); return; }
+    const url = URL.createObjectURL(await res.blob());
+    Object.assign(document.createElement("a"), { href: url, download: `naivastay-withholding-tax-${month}.csv` }).click();
+    URL.revokeObjectURL(url);
+  }
+  return (
+    <Page title="Withholding tax report" Icon={Download}
+      intro="Tax deducted from host payouts in the month, with each host's KRA PIN. File and remit it to KRA (iTax) by the 20th of the following month.">
+      <div className="flex flex-wrap items-center gap-2">
+        <input type="month" value={month} onChange={e => setMonth(e.target.value)} className={`${inputCls} w-auto`} aria-label="Month" />
+        <button className={`${btnPrimary} py-2.5`} onClick={download} disabled={!q.data?.lines.length}>
+          <Download className="w-3.5 h-3.5" aria-hidden="true" />Download CSV
+        </button>
+      </div>
+      {q.data && (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[["Payouts", q.data.totals.payouts], ["Gross to hosts", kes(q.data.totals.gross)], ["Tax to remit", kes(q.data.totals.tax_withheld)], ["Hosts without KRA PIN", q.data.totals.missing_pins]].map(([l, v]) => (
+              <div key={l as string} className="bg-(--bg-surface) rounded-2xl p-4"><p className="text-xs text-(--text-muted)">{l}</p><p className="text-lg font-bold text-(--text-primary)">{v}</p></div>
+            ))}
+          </div>
+          {q.data.lines.length === 0
+            ? <p className="text-sm text-(--text-muted) text-center py-6">No payouts that month.</p>
+            : (
+              <div className="overflow-x-auto bg-(--bg-surface) rounded-2xl">
+                <table className="w-full text-xs">
+                  <thead className="text-left text-(--text-muted)"><tr>{["Date", "Host", "KRA PIN", "Home", "Gross", "Tax", "Paid"].map(h => <th key={h} className="p-3 font-medium">{h}</th>)}</tr></thead>
+                  <tbody className="divide-y divide-(--border) text-(--text-primary)">
+                    {q.data.lines.map(l => (
+                      <tr key={l.booking + l.date}><td className="p-3">{day(l.date)}</td><td className="p-3">{l.host}</td>
+                        <td className={`p-3 font-mono ${l.kra_pin ? "" : "text-red-600"}`}>{l.kra_pin || "missing"}</td><td className="p-3">{l.property}</td>
+                        <td className="p-3">{kes(l.gross)}</td><td className="p-3 font-semibold">{kes(l.tax_withheld)}</td><td className="p-3">{kes(l.paid_to_host)}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+        </>
+      )}
     </Page>
   );
 }

@@ -76,7 +76,7 @@ def card_fee(total_kes: int) -> int:
 
 async def card_fees_paid(db: AsyncSession, booking_id: str) -> int:
     """Card surcharges collected on this booking — refunded only when the
-    cancellation isn't the guest's choice (host or Avistay cancels)."""
+    cancellation isn't the guest's choice (host or NaivaStay cancels)."""
     return int((await db.execute(
         select(func.coalesce(func.sum(Payment.fee_amount), 0)).where(
             Payment.booking_id == booking_id, Payment.type == "charge", Payment.status == "completed",
@@ -88,6 +88,18 @@ def owner_payout_amount(booking: Booking) -> int:
     """Room price minus the commission locked in at booking time. The platform
     keeps the guest fee and the tourism levy (remitted to TRA)."""
     return policy.owner_payout_amount(booking.room_amount, booking.commission_kes)
+
+
+def withholding_tax(gross: int) -> int:
+    """Withholding tax on a host payout (Admin → Settings), whole KES rounded down."""
+    pct = S().withholding_tax_pct
+    return int(gross * pct // 100) if pct > 0 and gross > 0 else 0
+
+
+def host_net_payout(booking: Booking) -> int:
+    """What actually reaches the host's M-Pesa for this stay (before any penalties)."""
+    gross = owner_payout_amount(booking)
+    return gross - withholding_tax(gross)
 
 
 def _eat_midnight(d) -> datetime:
@@ -278,6 +290,7 @@ async def queue_payout(db: AsyncSession, booking: Booking, amount: int | None = 
         return None
 
     gross = owner_payout_amount(booking) if amount is None else amount
+    tax = withholding_tax(gross)
     owner_id = await property_owner_id(db, booking)
     adjustments = (await db.execute(
         select(OwnerAdjustment).where(
@@ -285,9 +298,9 @@ async def queue_payout(db: AsyncSession, booking: Booking, amount: int | None = 
             OwnerAdjustment.applied_payment_id.is_(None),
         ).with_for_update()
     )).scalars().all()
-    net = gross + sum(a.amount for a in adjustments)
+    net = gross - tax + sum(a.amount for a in adjustments)
 
-    payout = Payment(booking_id=booking.id, amount=max(net, 0), type="payout",
+    payout = Payment(booking_id=booking.id, amount=max(net, 0), type="payout", tax_withheld=tax,
                      status="pending" if net > 0 else "completed")
     db.add(payout)
     await db.flush()

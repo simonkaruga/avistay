@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.avistay.app"
+    namespace = "com.naivastay.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.avistay.app"
+        applicationId "com.naivastay.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // CI passes -PversionCode=<run number> -PversionName=<x.y.z>; every Play upload needs a higher code.

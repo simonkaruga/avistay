@@ -139,7 +139,7 @@ async def initialize_card_payment(
                       type="charge", status="pending", method="card")
     db.add(payment)
     await db.flush()
-    reference = f"AVC-{payment.id}"
+    reference = f"NSC-{payment.id}"
     payment.provider_request_id = reference
     try:
         url = await paystack.initialize(

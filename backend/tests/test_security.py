@@ -122,5 +122,62 @@ def test_callback_secret_never_reaches_logs(monkeypatch):
     from app.core.config import settings
     monkeypatch.setattr(settings, "MPESA_CALLBACK_SECRET", "abc-very-secret-callback-token-1234567890")
     assert "abc-very" not in main._redact("/api/payments/mpesa/callback/abc-very-secret-callback-token-1234567890")
-    event = main._scrub_event({"request": {"url": "https://api.avistay.com/api/payments/mpesa/callback/abc-very-secret-callback-token-1234567890"}}, None)
+    event = main._scrub_event({"request": {"url": "https://api.naivastay.com/api/payments/mpesa/callback/abc-very-secret-callback-token-1234567890"}}, None)
     assert "abc-very" not in event["request"]["url"]
+
+
+@pytest.mark.asyncio
+async def test_guests_never_get_the_host_commission(client):
+    """The commission is between NaivaStay and the host. The settings every guest page
+    loads must not carry it; only the Become-a-host page asks for it."""
+    site = (await client.get("/api/site")).json()
+    assert not any("commission" in k for k in site)
+    assert (await client.get("/api/site/hosting")).json()["commission_pct"] == 10
+
+
+@pytest.mark.asyncio
+async def test_host_text_commands_need_the_webhook_secret(client, monkeypatch):
+    """Anyone can fake the sender number, so without the secret URL a stranger could
+    block or unblock a host's dates. Wrong or missing secret: nothing runs."""
+    from app.api import whatsapp
+    from app.core.config import settings
+    ran = []
+
+    async def fake_handle(sender, text):
+        ran.append((sender, text))
+        return "ok"
+    monkeypatch.setattr(whatsapp, "_handle_command", fake_handle)
+    monkeypatch.setattr(settings, "AT_API_KEY", "")            # don't send real replies
+    cmd = {"from": "+254700000001", "text": "UNBLOCK abcd1234 2026-12-01 2026-12-05"}
+
+    monkeypatch.setattr(settings, "AT_WEBHOOK_SECRET", "")     # not configured: off
+    assert (await client.post("/api/whatsapp/incoming/anything", data=cmd)).status_code == 404
+    monkeypatch.setattr(settings, "AT_WEBHOOK_SECRET", "s" * 40)
+    for path in ("/api/whatsapp/incoming/wrong", "/api/whatsapp/sms-incoming/wrong"):
+        assert (await client.post(path, data=cmd)).status_code == 404
+    assert (await client.post("/api/whatsapp/incoming", data=cmd)).status_code in (404, 405)
+    assert ran == []
+
+    assert (await client.post(f"/api/whatsapp/incoming/{'s' * 40}", data=cmd)).status_code == 200
+    assert (await client.post(f"/api/whatsapp/sms-incoming/{'s' * 40}", data=cmd)).status_code == 200
+    assert len(ran) == 2
+
+
+def _start_live(env: dict):
+    """Load the settings in a fresh Python as the live site would."""
+    import os
+    import subprocess
+    import sys
+    base = {"FRONTEND_URL": "https://naivastay.com", "JWT_SECRET_KEY": "x" * 48, "PAYSTACK_SECRET_KEY": "",
+            "MPESA_CONSUMER_KEY": "", "AT_WEBHOOK_SECRET": ""}
+    return subprocess.run(
+        [sys.executable, "-c", "from app.core.config import settings; print(settings.ALLOWED_ORIGINS)"],
+        env={**os.environ, **base, **env}, capture_output=True, text=True, cwd=os.path.dirname(os.path.dirname(__file__)))
+
+
+def test_live_site_refuses_paystack_test_key_and_drops_dev_origin():
+    bad = _start_live({"PAYSTACK_SECRET_KEY": "sk_test_abc"})
+    assert bad.returncode != 0 and "test key" in bad.stderr
+    ok = _start_live({"PAYSTACK_SECRET_KEY": "sk_live_abc"})
+    assert ok.returncode == 0, ok.stderr
+    assert "http://localhost:5173" not in ok.stdout and "https://localhost" in ok.stdout

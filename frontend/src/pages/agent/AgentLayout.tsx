@@ -107,7 +107,7 @@ function AgentProperties() {
 }
 
 // In the app the page origin is capacitor://…, which a client can't open.
-const SITE = isNativeApp ? "https://avistay.com" : window.location.origin;
+const SITE = isNativeApp ? "https://naivastay.com" : window.location.origin;
 
 function AgentPropertyList() {
   const [props, setProps] = useState<any[]>([]);

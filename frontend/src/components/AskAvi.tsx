@@ -1,7 +1,7 @@
 /**
- * Ask Avi: Avistay's AI assistant. A floating "Ask Avi" button and chat panel.
+ * Ask Avi: NaivaStay's AI assistant. A floating "Ask Avi" button and chat panel.
  * Property pages talk to /properties/:id/chat (answers about that home);
- * the home page talks to /avi/chat (helps choose a home, explains Avistay).
+ * the home page talks to /avi/chat (helps choose a home, explains NaivaStay).
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Send, Sparkles, X } from "lucide-react";
@@ -71,7 +71,7 @@ export default function AskAvi({ endpoint, subtitle, greeting, starters, note, o
               <Sparkles className="w-5 h-5 text-mint" aria-hidden="true" />
             </div>
             <div className="min-w-0">
-              <p className="text-white text-sm font-semibold">Avi <span className="font-normal text-white/65">· Avistay's AI assistant</span></p>
+              <p className="text-white text-sm font-semibold">Avi <span className="font-normal text-white/65">· NaivaStay's AI assistant</span></p>
               <p className="text-white/65 text-xs truncate">{subtitle}</p>
             </div>
           </div>

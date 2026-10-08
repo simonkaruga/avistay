@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from app.core.database import get_db
 from app.core.security import revoke_sessions
+from app.services.compliance import go_live_error
 from app.core.deps import require_admin
 from app.core.audit_log import log_event
 from app.models.models import User, Property, Booking
@@ -70,6 +71,9 @@ async def approve_listing(
     prop = (await db.execute(select(Property).where(Property.id == property_id))).scalar_one_or_none()
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
+    problem = go_live_error(prop, await db.get(User, prop.owner_id))
+    if problem:
+        raise HTTPException(status_code=409, detail=problem)
 
     prop.active = True
     prop.verified_tier = body.tier

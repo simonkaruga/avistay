@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  AlertTriangle, Banknote, CalendarDays, CalendarX, ChevronRight, Clock, DoorOpen, Hammer, KeyRound, Loader2,
-  MessageSquareWarning, PauseCircle, Users,
+  AlertTriangle, BadgeCheck, Banknote, CalendarDays, CalendarX, ChevronRight, Clock, DoorOpen, Hammer, KeyRound, Loader2,
+  MessageCircle, MessageSquareWarning, PauseCircle, Users,
 } from "lucide-react";
 import { apiJson } from "../../utils/api";
 import { fmtDate, fmtDateTime, kes, nightsBetween } from "../../utils/format";
@@ -20,6 +20,43 @@ interface OwnerBooking {
   your_payout: number; payout_status: string | null; payout_due_at: string | null;
   dispute: { id: string; status: string; opener_role: "guest" | "owner" } | null;
   can_cancel: boolean; can_report_damage: boolean; cancelled_by: string | null;
+  guest: { name: string; phone: string | null; email: string | null; id_verified: boolean; shared: boolean } | null;
+  unread_messages: number;
+  group_name?: string | null; company_name?: string | null;
+}
+
+/** Who is coming: full contact details once the booking is paid. */
+function GuestCard({ b }: { b: OwnerBooking }) {
+  const g = b.guest;
+  if (!g || b.status === "cancelled") return null;
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-(--border) px-3 py-2.5">
+      <span className="w-9 h-9 rounded-full bg-teal/10 text-teal font-semibold flex items-center justify-center shrink-0">{g.name.charAt(0)}</span>
+      <div className="min-w-0 flex-1 text-xs">
+        <p className="text-sm font-semibold text-(--text-primary) flex items-center gap-1.5">
+          {g.name}
+          {g.id_verified && <BadgeCheck size={14} className="text-teal" aria-label="ID checked by NaivaStay" />}
+        </p>
+        {g.shared ? (
+          <p className="text-(--text-muted) truncate">
+            {g.phone && <a href={`tel:${g.phone}`} className="text-teal underline underline-offset-2">{g.phone}</a>}
+            {g.email && <> · {g.email}</>}
+            {(b.company_name || b.group_name) && <> · {b.company_name ?? b.group_name}</>}
+          </p>
+        ) : (
+          <p className="text-(--text-muted)">Contact details appear once the guest has paid</p>
+        )}
+        {g.shared && <p className="text-(--text-muted)">Check their ID on arrival before giving the keys.</p>}
+      </div>
+      <Link to={`/owner/messages/${b.id}`} className="relative flex items-center gap-1.5 text-xs font-semibold text-white bg-forest rounded-full px-3 py-2 shrink-0">
+        <MessageCircle size={14} aria-hidden="true" /> Message
+        {b.unread_messages > 0 && (
+          <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-clay text-white text-[11px] font-bold flex items-center justify-center"
+            aria-label={`${b.unread_messages} unread`}>{b.unread_messages}</span>
+        )}
+      </Link>
+    </div>
+  );
 }
 
 /** Plain-language payout state for a host — the question they ask most. */
@@ -171,10 +208,12 @@ export default function OwnerBookings() {
                 <div className="text-right shrink-0">
                   <p className="text-xs text-(--text-muted)">Your payout</p>
                   <p className="text-sm font-bold text-(--text-primary)">{kes(b.your_payout)}</p>
-                  {b.commission_kes > 0 && <p className="text-[11px] text-(--text-muted)">after {kes(b.commission_kes)} commission</p>}
+                  {b.commission_kes > 0 && <p className="text-[11px] text-(--text-muted)">after commission and tax</p>}
                 </div>
               )}
             </div>
+
+            <GuestCard b={b} />
 
             <PayoutLine b={b} />
 

@@ -20,7 +20,7 @@ async def upload_signature(body: SignatureRequest, user: User = Depends(get_curr
     if body.purpose == "listing" and user.role not in ("owner", "admin"):
         raise HTTPException(status_code=403, detail="Only hosts can upload listing photos")
     if body.purpose == "site" and user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only the Avistay team can upload home-page images")
+        raise HTTPException(status_code=403, detail="Only the NaivaStay team can upload home-page images")
     await rate_limit(f"upload_sig:{user.id}", limit=300, window=3600)
     try:
         return signed_upload_params(body.purpose, user.id)

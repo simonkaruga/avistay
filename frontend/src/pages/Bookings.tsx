@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, Link } from "react-router-dom";
 import {
   CalendarCheck, CalendarDays, CalendarX, CalendarPlus, ChevronRight, Download, Home as HomeIcon, KeyRound,
-  Loader2, LockKeyhole, MessageSquareWarning, PenLine, ShieldCheck, Star, X, XCircle,
+  Loader2, LockKeyhole, MessageCircle, MessageSquareWarning, PenLine, ShieldCheck, Star, X, XCircle,
 } from "lucide-react";
 const loadPdf = () => import("../utils/pdf");   // only when someone taps download
 import { api, apiJson } from "../utils/api";
@@ -24,6 +24,8 @@ interface Booking {
   dispute_id: string | null; dispute_status: string | null;
   can_cancel: boolean; can_report: boolean;
   cancelled_by: string | null;
+  host?: { name: string; phone: string | null } | null;
+  unread_messages?: number;
 }
 
 type Tab = "upcoming" | "past" | "cancelled";
@@ -216,6 +218,28 @@ function BookingCard({ b, onReview, onCancel, onReport }: {
               The host cancelled. You get a full refund, fees included.</li>
           )}
         </ul>
+
+        {/* Your host, once the stay is paid */}
+        {b.host && b.status !== "cancelled" && (
+          <div className="flex items-center gap-3 rounded-xl border border-(--border) px-3 py-2.5">
+            <span className="w-9 h-9 rounded-full bg-forest/10 text-forest font-semibold flex items-center justify-center shrink-0">
+              {b.host.name.charAt(0)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-(--text-primary)">Your host: {b.host.name}</p>
+              {b.host.phone
+                ? <a href={`tel:${b.host.phone}`} className="text-xs text-teal underline underline-offset-2">{b.host.phone}</a>
+                : <p className="text-xs text-(--text-muted)">Contact details appear once you've paid</p>}
+            </div>
+            <Link to={`/messages/${b.id}`} className="relative flex items-center gap-1.5 text-xs font-semibold text-white bg-forest rounded-full px-3 py-2 shrink-0">
+              <MessageCircle size={14} aria-hidden="true" /> Message
+              {(b.unread_messages ?? 0) > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-clay text-white text-[11px] font-bold flex items-center justify-center"
+                  aria-label={`${b.unread_messages} unread`}>{b.unread_messages}</span>
+              )}
+            </Link>
+          </div>
+        )}
 
         {b.dispute_id && (
           <Link to={`/disputes/${b.dispute_id}`}

@@ -1,4 +1,4 @@
-name: Deploy Avistay
+name: Deploy NaivaStay
 
 on:
   push:
@@ -131,7 +131,7 @@ jobs:
           npx @railway/cli@latest rollback --service backend --environment production
           curl -X POST "https://api.africastalking.com/version1/messaging" \
             -H "apiKey: ${{ secrets.AT_API_KEY }}" \
-            -d "username=${{ secrets.AT_USERNAME }}&to=${{ secrets.FOUNDER_PHONE }}&message=ROLLBACK: Avistay deploy failed. Previous version restored."
+            -d "username=${{ secrets.AT_USERNAME }}&to=${{ secrets.FOUNDER_PHONE }}&message=ROLLBACK: NaivaStay deploy failed. Previous version restored."
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 

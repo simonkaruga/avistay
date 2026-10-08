@@ -60,15 +60,27 @@ async def parse_remote_ical(url: str) -> list[tuple[date, date]]:
 def generate_ical(property_uuid: str, bookings: list[dict]) -> bytes:
     """Generate iCal feed for a property — owner pastes into Airbnb."""
     cal = Calendar()
-    cal.add("prodid", "-//Avistay//EN")
+    cal.add("prodid", "-//NaivaStay//EN")
     cal.add("version", "2.0")
 
     for b in bookings:
         event = Event()
-        event.add("uid", f"{b['id']}@avistay.com")
+        event.add("uid", f"{b['id']}@naivastay.com")
         event.add("dtstart", b["check_in"])
         event.add("dtend", b["check_out"])
-        event.add("summary", "Booked on Avistay")
+        event.add("summary", b.get("summary", "Booked on NaivaStay"))
         cal.add_component(event)
 
     return cal.to_ical()
+
+
+def date_runs(days: list[date]) -> list[tuple[date, date]]:
+    """[1,2,3,7] → [(1,4),(7,8)]: consecutive nights as check-in/check-out ranges."""
+    from datetime import timedelta
+    runs: list[tuple[date, date]] = []
+    for d in sorted(set(days)):
+        if runs and runs[-1][1] == d:
+            runs[-1] = (runs[-1][0], d + timedelta(days=1))
+        else:
+            runs.append((d, d + timedelta(days=1)))
+    return runs

@@ -263,24 +263,6 @@ export default function Home() {
         {/* Become a host */}
         <HostCTA />
 
-        {/* ── Footer links ── */}
-        <div className="mt-6 mb-4 pt-4 border-t border-(--border)">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 mb-4">
-            {([
-              { to: "/how-it-works",        label: "How it works" },
-              { to: "/about",               label: "About Avistay" },
-              { to: "/terms",               label: "Terms of service" },
-              { to: "/privacy",             label: "Privacy policy" },
-              { to: "/cancellation-policy", label: "Cancellation policy" },
-              { to: "/list-your-property", label: "List your property" },
-            ] as const).map(l => (
-              <Link key={l.to} to={l.to} className="text-xs text-(--text-muted) underline underline-offset-2">{l.label}</Link>
-            ))}
-          </div>
-          <p className="text-[10px] text-(--text-muted) text-center">
-            © {new Date().getFullYear()} Avistay · Beautiful stays. Better experiences.
-          </p>
-        </div>
       </div>
     </div>
   );

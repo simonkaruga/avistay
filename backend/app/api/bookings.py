@@ -30,6 +30,7 @@ from app.services.payments import (
     queue_payout,
     release_booking_dates,
 )
+from app.api.messages import unread_counts
 
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["bookings"])
@@ -250,9 +251,17 @@ async def my_bookings(
     )).scalars().all():
         disputes[d.booking_id] = d  # latest wins
 
+    hosts = {p.id: p.owner_id for p in (await db.execute(
+        select(Property).where(Property.id.in_({b.property_id for b, _ in rows})))).scalars()} if rows else {}
+    host_users = {u.id: u for u in (await db.execute(
+        select(User).where(User.id.in_(set(hosts.values()))))).scalars()} if hosts else {}
+    unread = await unread_counts(db, user.id, ids)
+
     result = []
     for booking, title in rows:
         out = {k: v for k, v in vars(booking).items() if not k.startswith("_")}
+        h = host_users.get(hosts.get(booking.property_id, ""))
+        paid = booking.status in ("confirmed", "checked_in", "completed")
         dispute = disputes.get(booking.id)
         free_until = policy.free_cancellation_until(booking.cancellation_policy, booking.check_in)
         out.update({
@@ -264,6 +273,9 @@ async def my_bookings(
             "dispute_status": dispute.status if dispute else None,
             "can_cancel": booking.status in ("pending", "confirmed"),
             "can_report": can_open("guest", booking) and not (dispute and dispute.status == "open"),
+            # The host's contact details once the stay is paid (for arrival on the day).
+            "host": {"name": (h.name or "").split(" ")[0] or "Your host", "phone": h.phone if paid else None} if h else None,
+            "unread_messages": unread.get(booking.id, 0),
         })
         result.append(out)
     return result

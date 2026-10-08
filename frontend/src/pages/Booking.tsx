@@ -15,6 +15,7 @@ import { currentReferral } from "../utils/referral";
 import PriceBreakdown, { type Quote } from "../components/ui/PriceBreakdown";
 import StepIndicator from "../components/ui/StepIndicator";
 import Notice from "../components/ui/Notice";
+import { CardBadges, MpesaBadge, PaystackMark } from "../components/PaymentLogos";
 
 interface PropertySummary {
   id: string; title: string; type: string;
@@ -109,7 +110,7 @@ export default function Booking() {
       if (method === "card") {
         // Paystack's secure page takes the card; we never see the number.
         try {
-          if (needsEmail) { try { sessionStorage.setItem("avistay.cardEmail", cardEmail.trim()); } catch { /* private mode */ } }
+          if (needsEmail) { try { sessionStorage.setItem("naivastay.cardEmail", cardEmail.trim()); } catch { /* private mode */ } }
           const card = await apiJson<{ authorization_url: string }>("/payments/card/initialize", {
             method: "POST", json: { booking_id: booking.id, email: needsEmail ? cardEmail.trim() : undefined },
           });
@@ -121,7 +122,7 @@ export default function Booking() {
           }
         } catch (e) {
           navigate(`/booking-confirm/${booking.id}?method=card`, {
-            state: { ...navState, stkError: e instanceof ApiError ? e.message : "Could not open the card payment page" },
+            state: { ...navState, stkError: e instanceof ApiError ? e.message : "Could not open Paystack" },
           });
         }
         return;
@@ -231,7 +232,7 @@ export default function Booking() {
                 <ShieldCheck size={18} className="text-forest shrink-0" aria-hidden="true" />
                 <p className="text-xs text-(--text-muted) leading-relaxed">
                   <span className="font-semibold text-(--text-primary)">Your payment is protected. </span>
-                  Avistay keeps it and only pays the host {protectWindow} after you check in. If something is wrong (you can't get in, or the home isn't as described), report it in the app before then and we step in.
+                  NaivaStay keeps it and only pays the host {protectWindow} after you check in. If something is wrong (you can't get in, or the home isn't as described), report it in the app before then and we step in.
                 </p>
               </div>
               <div className="flex gap-2.5 text-sm">
@@ -339,22 +340,34 @@ export default function Booking() {
               <legend className="sr-only">How would you like to pay?</legend>
               <p className="text-sm font-semibold text-(--text-primary)">How would you like to pay?</p>
               {([
-                { id: "mpesa", Icon: Smartphone, title: "M-Pesa", sub: "Prompt on your phone · no extra fee", amount: quote.total_amount },
-                ...(cardsOn ? [{ id: "card", Icon: CreditCard, title: "Card or Apple Pay",
-                  sub: `Visa, Mastercard · card fee ${kes(cardFee)} (${quote.card_surcharge_pct ?? 0}%)`, amount: quote.total_amount + cardFee }] : []),
+                { id: "mpesa", logo: <MpesaBadge h={26} />, title: "M-Pesa", sub: "Prompt on your phone · no extra fee", cards: false, amount: quote.total_amount },
+                ...(cardsOn ? [{ id: "card", logo: <span className="w-[41px] flex justify-center"><PaystackMark size={22} /></span>, title: "Pay with Paystack",
+                  sub: `Card fee ${kes(cardFee)} (${quote.card_surcharge_pct ?? 0}%)`, cards: true, amount: quote.total_amount + cardFee }] : []),
               ] as const).map(o => (
                 <label key={o.id} className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-colors ${
                   method === o.id ? "border-forest bg-forest/5" : "border-(--border)"}`}>
                   <input type="radio" name="pay-method" value={o.id} checked={method === o.id}
                     onChange={() => setMethod(o.id as "mpesa" | "card")} className="accent-forest w-4 h-4" />
-                  <o.Icon size={20} className="text-forest shrink-0" aria-hidden="true" />
+                  {o.logo}
                   <span className="flex-1 min-w-0">
                     <span className="block text-sm font-semibold text-(--text-primary)">{o.title}</span>
+                    {o.cards && <CardBadges h={18} className="mt-1" />}
                     <span className="block text-xs text-(--text-muted)">{o.sub}</span>
                   </span>
                   <span className="text-sm font-bold text-(--text-primary) whitespace-nowrap">{kes(o.amount)}</span>
                 </label>
               ))}
+              {!cardsOn && (
+                <div className="flex items-center gap-3 rounded-xl border border-dashed border-(--border) p-3 opacity-60" aria-disabled="true">
+                  <span className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  <span className="w-[41px] flex justify-center"><PaystackMark size={22} /></span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-sm font-semibold text-(--text-primary)">Pay with Paystack</span>
+                    <CardBadges h={18} className="mt-1" />
+                    <span className="block text-xs text-(--text-muted)">Coming soon</span>
+                  </span>
+                </div>
+              )}
               {method === "card" && (
                 <div className="space-y-2 pt-1">
                   {needsEmail && (
@@ -366,8 +379,8 @@ export default function Booking() {
                   )}
                   <p className="flex items-start gap-2 text-xs text-(--text-muted) leading-relaxed">
                     <Lock size={14} className="shrink-0 mt-0.5 text-forest" aria-hidden="true" />
-                    You'll pay on Paystack's secure page. Avistay never sees your card number. Your bank may ask you to confirm.
-                    The card fee covers the card company's charge and isn't refunded if you cancel; if the host or Avistay cancels, you get it back too.
+                    Secured by Paystack. You'll pay on Paystack's page, and NaivaStay never sees your card number. Your bank may ask you to confirm.
+                    The card fee covers the card company's charge and isn't refunded if you cancel; if the host or NaivaStay cancels, you get it back too.
                   </p>
                 </div>
               )}
@@ -395,8 +408,8 @@ export default function Booking() {
             <button onClick={handleConfirm} disabled={loading || !termsAccepted || !quote}
               className="w-full flex items-center justify-center gap-3 text-white font-bold py-4 rounded-2xl transition-all active:scale-[.98] disabled:opacity-50 bg-clay hover:bg-(--color-clay-dark) disabled:bg-gray-400">
               {loading
-                ? <><Loader2 size={20} className="animate-spin" /> Opening secure payment…</>
-                : <><CreditCard size={18} aria-hidden="true" /> Pay {quote ? kes(payTotal) : ""} by card</>}
+                ? <><Loader2 size={20} className="animate-spin" /> Opening Paystack…</>
+                : <><CreditCard size={18} aria-hidden="true" /> Pay {quote ? kes(payTotal) : ""} with Paystack</>}
             </button>
           ) : (
             <button onClick={handleConfirm} disabled={loading || !termsAccepted || !quote}
@@ -413,7 +426,7 @@ export default function Booking() {
 
           <p className="text-xs text-center text-(--text-muted) pb-4">
             {method === "card"
-              ? <>You'll go to a secure card page, then come straight back here.</>
+              ? <>You'll go to Paystack's secure page, then come straight back here.</>
               : <>You'll get an M-Pesa prompt on your phone.<br />Enter your PIN to complete the booking.</>}
           </p>
         </div>

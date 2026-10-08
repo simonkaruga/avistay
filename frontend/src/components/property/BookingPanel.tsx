@@ -9,6 +9,7 @@ import { CalendarDays, Loader2, Minus, Plus, ShieldCheck, Star, Users } from "lu
 import { apiJson } from "../../utils/api";
 import { fmtDate, kes } from "../../utils/format";
 import type { Quote } from "../ui/PriceBreakdown";
+import { AllPaymentLogos } from "../PaymentLogos";
 
 interface Props {
   propertyId: string;
@@ -99,8 +100,9 @@ export default function BookingPanel(p: Props) {
         )}
         <p className="flex items-start gap-2 text-xs text-(--text-muted)">
           <ShieldCheck className="w-4 h-4 text-forest shrink-0" aria-hidden="true" />
-          {cardsOn ? "Pay by M-Pesa or card." : "Pay with M-Pesa."} The host is only paid {protectWindow} after you check in.
+          {cardsOn ? "Pay by M-Pesa, or by card with Paystack." : "Pay with M-Pesa. Cards with Paystack coming soon."} The host is only paid {protectWindow} after you check in.
         </p>
+        <AllPaymentLogos h={20} className="justify-center" />
       </aside>
 
       {/* Phones/tablets: compact bar above the bottom tabs */}

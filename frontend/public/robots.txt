@@ -7,4 +7,4 @@ Disallow: /admin/
 Disallow: /agent/
 Disallow: /api/
 
-Sitemap: https://avistay.com/sitemap.xml
+Sitemap: https://naivastay.com/sitemap.xml

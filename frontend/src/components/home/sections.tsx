@@ -16,6 +16,7 @@ import { apiJson } from "../../utils/api";
 import { placeForDestination } from "../../data/places";
 import { STAY_PHOTOS, STAY_TYPE_PHOTO } from "../../data/stayPhotos";
 import { useProtectionWindow, useSiteInfo } from "../SiteNotice";
+import { AllPaymentLogos } from "../PaymentLogos";
 import { imgSrc } from "../../utils/image";
 
 export const ROW_MIN = 4;   // homes needed before a card row is shown
@@ -194,7 +195,7 @@ export function WeekendRow() {
   );
 }
 
-// ── Home content managed by the Avistay team (admin → Home page) ─────────────
+// ── Home content managed by the NaivaStay team (admin → Home page) ─────────────
 
 export interface Offer {
   id: string; title: string; subtitle: string | null; body: string | null; image_url: string | null;
@@ -319,7 +320,7 @@ export function UniqueStays({ homes }: { homes: PropertyCardData[] }) {
   if (picked.length >= ROW_MIN) {
     return (
       <Section>
-        <SectionHeader title="Our most unique stays" subtitle="Handpicked by the Avistay team" />
+        <SectionHeader title="Our most unique stays" subtitle="Handpicked by the NaivaStay team" />
         <div className="-mx-4 px-4 flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-px-4 md:scroll-px-0 scrollbar-none pb-1 md:mx-0 md:px-0 md:grid md:grid-cols-4 md:overflow-visible">
           {picked.slice(0, 8).map((p, i) => (
             <div key={p.id} className={`snap-start shrink-0 w-[46vw] max-w-[230px] md:w-auto md:max-w-none ${i >= 4 ? "md:hidden" : ""}`}>
@@ -373,23 +374,23 @@ export function AreaTiles({ homes }: { homes: PropertyCardData[] }) {
   );
 }
 
-// ── 6. Payment protection — what Avistay offers that WhatsApp bookings don't ──
+// ── 6. Payment protection — what NaivaStay offers that WhatsApp bookings don't ──
 
 export function ProtectionBanner() {
   const cards = !!useSiteInfo().data?.card_payments;
   const protectWindow = useProtectionWindow();
   const points: { Icon: LucideIcon; title: string; text: string }[] = [
-    cards
-      ? { Icon: Smartphone, title: "Pay with M-Pesa or card", text: "M-Pesa prompt, Visa, Mastercard or Apple Pay." }
-      : { Icon: Smartphone, title: "Pay with M-Pesa", text: "A prompt on your phone. Book in under a minute." },
+    { Icon: Smartphone, title: "Pay with M-Pesa or Paystack", text: cards
+      ? "M-Pesa prompt, or Visa, Mastercard and Apple Pay with Paystack."
+      : "M-Pesa prompt on your phone. Visa, Mastercard and Apple Pay with Paystack coming soon." },
     { Icon: ShieldCheck, title: "Host paid after you arrive", text: `We keep your payment until ${protectWindow} after check-in.` },
     { Icon: CalendarDays, title: "Problem? We step in", text: "Report it in that time and the host isn't paid until it's sorted, refund included." },
   ];
   return (
     <Section>
       <div className="rounded-3xl bg-(--bg-surface) border border-(--border) p-5 md:p-6">
-        <p className="text-xs font-semibold tracking-[0.2em] uppercase text-teal">Booked safely with Avistay</p>
-        <h2 className="font-display italic text-2xl text-(--text-primary) mt-1">{cards ? "Pay your way. Stay protected." : "Pay with M-Pesa. Stay protected."}</h2>
+        <p className="text-xs font-semibold tracking-[0.2em] uppercase text-teal">Booked safely with NaivaStay</p>
+        <h2 className="font-display italic text-2xl text-(--text-primary) mt-1">Pay with M-Pesa or Paystack. Stay protected.</h2>
         <ul className="mt-4 grid md:grid-cols-3 gap-4">
           {points.map(({ Icon, title, text }) => (
             <li key={title} className="flex gap-3">
@@ -403,6 +404,7 @@ export function ProtectionBanner() {
             </li>
           ))}
         </ul>
+        <AllPaymentLogos className="mt-5" />
         <Link to="/how-it-works" className="inline-flex items-center gap-1 text-sm font-semibold text-teal mt-4">
           How it works <ChevronRight className="w-4 h-4" aria-hidden="true" />
         </Link>

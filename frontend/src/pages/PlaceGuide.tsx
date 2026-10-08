@@ -65,7 +65,7 @@ export default function PlaceGuide() {
   useSEO({
     title: place ? `${place.name}, Naivasha: guide and where to stay` : "Place not found",
     description: place ? `${place.tagline}. Photos, things to do, tips and verified homes to stay near ${place.name}.` : undefined,
-    image: place?.photos[0] ? `https://avistay.com${place.photos[0].src}` : undefined,
+    image: place?.photos[0] ? `https://naivastay.com${place.photos[0].src}` : undefined,
     url: place ? `/places/${place.slug}` : undefined,
   });
 

@@ -12,6 +12,7 @@ import Bookings from "./pages/Bookings";
 import Profile from "./pages/Profile";
 import TopBar from "./components/TopBar";
 import SiteNotice from "./components/SiteNotice";
+import SiteFooter from "./components/SiteFooter";
 import BottomNav from "./components/BottomNav";
 import NotFound from "./pages/NotFound";
 import Legal from "./pages/Legal";
@@ -27,6 +28,7 @@ const OwnerLayout = lazy(() => import("./pages/owner/OwnerLayout"));
 const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"));
 const PlaceGuide = lazy(() => import("./pages/PlaceGuide"));
 const PhotoCredits = lazy(() => import("./pages/PhotoCredits"));
+const Messages = lazy(() => import("./pages/Messages"));
 const AgentLayout = lazy(() => import("./pages/agent/AgentLayout"));
 
 export default function App() {
@@ -50,6 +52,7 @@ export default function App() {
               <Route path="/booking-confirm/:bookingId" element={<BookingConfirm />} />
               <Route path="/saved"                     element={<Saved />} />
               <Route path="/bookings"                  element={<Bookings />} />
+              <Route path="/messages/:bookingId"       element={<Suspense fallback={null}><Messages /></Suspense>} />
               <Route path="/profile"                   element={<Profile />} />
               <Route path="/terms"                     element={<Legal page="terms" />} />
               <Route path="/privacy"                   element={<Legal page="privacy" />} />
@@ -62,6 +65,7 @@ export default function App() {
               <Route path="/disputes/:id"              element={<Suspense fallback={null}><Dispute /></Suspense>} />
               <Route path="*"                          element={<NotFound />} />
             </Routes>
+            <SiteFooter />
             <BottomNav />
             <InstallPrompt />
           </>

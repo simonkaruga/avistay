@@ -6,7 +6,7 @@ from app.core.config import settings
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import DBAPIError
-from app.api import health, auth, properties, bookings, payments, ical, reviews, admin, owner, applications, agent, whatsapp, disputes, uploads, home, console, avi
+from app.api import health, auth, properties, bookings, payments, ical, reviews, admin, owner, applications, agent, whatsapp, disputes, uploads, home, console, avi, messages
 
 import logging
 
@@ -42,7 +42,7 @@ def _scrub_event(event, hint):
 sentry_sdk.init(dsn=settings.SENTRY_DSN, traces_sample_rate=0.1, send_default_pii=False,
                 before_send=_scrub_event, before_send_transaction=_scrub_event)
 
-app = FastAPI(title="Avistay API", version="1.0.0", docs_url=None, redoc_url=None)
+app = FastAPI(title="NaivaStay API", version="1.0.0", docs_url=None, redoc_url=None)
 
 app.add_middleware(
     CORSMiddleware,
@@ -67,6 +67,7 @@ app.include_router(disputes.router,     prefix="/api/disputes")
 app.include_router(uploads.router,      prefix="/api/uploads")
 app.include_router(home.router,         prefix="/api")
 app.include_router(avi.router,          prefix="/api")
+app.include_router(messages.router,     prefix="/api")
 app.include_router(agent.router,        prefix="/api")
 app.include_router(whatsapp.router,     prefix="/api")
 

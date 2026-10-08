@@ -13,16 +13,16 @@ const CONTENT: Record<string, { title: string; body: React.ReactNode }> = {
     title: "Terms of Service",
     body: (
       <div className="space-y-5 text-sm text-(--text-muted) leading-relaxed">
-        <p>By using Avistay you agree to the following terms. Please read them carefully.</p>
+        <p>NaivaStay is operated by Avinaya Solutions Ltd, a company registered in Kenya ("NaivaStay", "we", "us"). By using NaivaStay you agree to the following terms. Please read them carefully.</p>
 
         <section className="space-y-2">
           <h2 className="font-semibold text-(--text-primary)">1. Bookings</h2>
-          <p>All bookings are confirmed only after successful payment by M-Pesa or card. Card payments are processed by Paystack; Avistay never sees or stores card numbers. Paying by card adds a card fee, shown before you pay. The platform acts as a payment intermediary: the stay amount is held by Avistay and paid to the owner <PayoutWindow /> after the guest checks in, unless the guest reports a problem in that time. A refundable damage deposit, where shown at checkout, is returned to the guest <DepositDays /> after check-out unless the owner reports damage.</p>
+          <p>All bookings are confirmed only after successful payment by M-Pesa or card. Card payments are processed by Paystack; NaivaStay never sees or stores card numbers. Paying by card adds a card fee, shown before you pay. The platform acts as a payment intermediary: the stay amount is held by NaivaStay and paid to the owner <PayoutWindow /> after the guest checks in, unless the guest reports a problem in that time. A refundable damage deposit, where shown at checkout, is returned to the guest <DepositDays /> after check-out unless the owner reports damage.</p>
         </section>
 
         <section className="space-y-2">
           <h2 className="font-semibold text-(--text-primary)">2. Guest Conduct</h2>
-          <p>Guests are expected to respect the property and follow house rules provided by the owner. If the owner reports damage with evidence and Avistay upholds the claim, the cost is paid from the guest's damage deposit.</p>
+          <p>Guests are expected to respect the property and follow house rules provided by the owner. If the owner reports damage with evidence and NaivaStay upholds the claim, the cost is paid from the guest's damage deposit.</p>
         </section>
 
         <section className="space-y-2">
@@ -32,7 +32,7 @@ const CONTENT: Record<string, { title: string; body: React.ReactNode }> = {
 
         <section className="space-y-2">
           <h2 className="font-semibold text-(--text-primary)">4. Liability</h2>
-          <p>Avistay is a marketplace connecting guests with property owners. Guests and owners can report problems with a booking in the app; Avistay reviews the evidence from both sides and decides how held funds are released. We are not liable for disputes between guests and owners beyond the funds we hold for that booking.</p>
+          <p>NaivaStay is a marketplace connecting guests with property owners. Guests and owners can report problems with a booking in the app; NaivaStay reviews the evidence from both sides and decides how held funds are released. We are not liable for disputes between guests and owners beyond the funds we hold for that booking.</p>
         </section>
 
         <section className="space-y-2">
@@ -48,15 +48,24 @@ const CONTENT: Record<string, { title: string; body: React.ReactNode }> = {
     title: "Privacy Policy",
     body: (
       <div className="space-y-5 text-sm text-(--text-muted) leading-relaxed">
-        <p>Avistay collects minimal data necessary to provide the booking service.</p>
+        <p>NaivaStay collects minimal data necessary to provide the booking service.</p>
 
         <section className="space-y-2">
           <h2 className="font-semibold text-(--text-primary)">Data We Collect</h2>
           <ul className="list-disc pl-4 space-y-1">
             <li>Phone number (for authentication via OTP)</li>
             <li>Booking details (dates, property, payment reference)</li>
-            <li>Optional display name</li>
+            <li>Optional display name and email</li>
+            <li>Messages you send to your host or guest through NaivaStay</li>
+            <li>For hosts: KRA PIN and Tourism Regulatory Authority licence number (required by Kenyan law)</li>
           </ul>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="font-semibold text-(--text-primary)">What Your Host or Guest Sees</h2>
+          <p>Once a booking is paid, your host sees your name, phone number and email so they can welcome you, and you see your
+            host's name and phone number. Hosts stop seeing guest contact details 30 days after check-out. Messages are shared
+            between you and the other party, and the NaivaStay team may read them to help resolve a problem.</p>
         </section>
 
         <section className="space-y-2">

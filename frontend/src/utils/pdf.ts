@@ -17,23 +17,23 @@ interface BookingData {
   is_corporate?: boolean;
 }
 
-/** Card references start with AVC-; everything else is an M-Pesa receipt. */
-const payLabel = (ref: string | null) => (ref?.startsWith("AVC-") ? "Card payment ref" : "M-Pesa ref");
-const payRef = (ref: string | null) => (ref ? (ref.startsWith("AVC-") ? ref.slice(4, 12).toUpperCase() : ref) : "N/A");
+/** Card references start with NSC-; everything else is an M-Pesa receipt. */
+const payLabel = (ref: string | null) => (ref?.startsWith("NSC-") ? "Card payment ref" : "M-Pesa ref");
+const payRef = (ref: string | null) => (ref ? (ref.startsWith("NSC-") ? ref.slice(4, 12).toUpperCase() : ref) : "N/A");
 
 export function generateBookingPDF(booking: BookingData): void {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
 
   // Header bar
-  doc.setFillColor(31, 77, 54); // Avistay acacia green
+  doc.setFillColor(31, 77, 54); // NaivaStay acacia green
   doc.rect(0, 0, pageW, 30, "F");
 
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(20);
-  doc.text("Avistay", 15, 12);
+  doc.text("NaivaStay", 15, 12);
   doc.setFontSize(9);
-  doc.text("avistay.com", 15, 20);
+  doc.text("naivastay.com", 15, 20);
   doc.text("Booking Confirmation", pageW - 15, 18, { align: "right" });
 
   // Check-in code — large and prominent
@@ -81,7 +81,7 @@ export function generateBookingPDF(booking: BookingData): void {
     pageW / 2, 270, { align: "center" }
   );
 
-  doc.save(`avistay-booking-${booking.id.slice(0, 8)}.pdf`);
+  doc.save(`naivastay-booking-${booking.id.slice(0, 8)}.pdf`);
 }
 
 export function generateCorporateInvoicePDF(booking: BookingData, propertyTitle: string): void {
@@ -103,9 +103,9 @@ export function generateCorporateInvoicePDF(booking: BookingData, propertyTitle:
   doc.rect(0, 0, pageW, 36, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(18); doc.setFont("helvetica", "bold");
-  doc.text("Avistay", 15, 14);
+  doc.text("NaivaStay", 15, 14);
   doc.setFontSize(9); doc.setFont("helvetica", "normal");
-  doc.text("avistay.com  ·  Naivasha, Kenya", 15, 22);
+  doc.text("naivastay.com  ·  Naivasha, Kenya", 15, 22);
   doc.setFontSize(14); doc.setFont("helvetica", "bold");
   doc.text("BOOKING INVOICE", pageW - 15, 20, { align: "right" });
 
@@ -140,7 +140,7 @@ export function generateCorporateInvoicePDF(booking: BookingData, propertyTitle:
   const lines: [string, string, number][] = [
     [`Accommodation: ${propertyTitle}`, String(nights), room],
     ["Tourism levy", "", levy],
-    ["Avistay service fee", "", booking.platform_fee],
+    ["NaivaStay service fee", "", booking.platform_fee],
     ...(deposit ? [["Refundable damage deposit", "", deposit] as [string, string, number]] : []),
     ...(discount ? [["Promo discount", "", -discount] as [string, string, number]] : []),
   ];
@@ -164,9 +164,9 @@ export function generateCorporateInvoicePDF(booking: BookingData, propertyTitle:
   // Footer
   doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(140, 140, 140);
   doc.text("This is a computer-generated invoice and does not require a physical signature.", pageW / 2, 260, { align: "center" });
-  doc.text("Not a KRA eTIMS tax invoice. Contact hello@avistay.com for an official tax invoice.", pageW / 2, 266, { align: "center" });
+  doc.text("Not a KRA eTIMS tax invoice. Contact hello@naivastay.com for an official tax invoice.", pageW / 2, 266, { align: "center" });
 
-  doc.save(`avistay-invoice-${invoiceNo}.pdf`);
+  doc.save(`naivastay-invoice-${invoiceNo}.pdf`);
 }
 
 interface AgentVoucherData {
@@ -189,7 +189,7 @@ export function generateAgentVoucherPDF(data: AgentVoucherData): void {
   doc.rect(0, 0, pageW, 30, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(18); doc.setFont("helvetica", "bold");
-  doc.text("Avistay", 15, 13);
+  doc.text("NaivaStay", 15, 13);
   doc.setFontSize(9); doc.setFont("helvetica", "normal");
   doc.text("Agent Commission Voucher", pageW - 15, 18, { align: "right" });
 
@@ -236,8 +236,8 @@ export function generateAgentVoucherPDF(data: AgentVoucherData): void {
   // Footer
   doc.setFontSize(7); doc.setFont("helvetica", "normal");
   doc.setTextColor(140, 140, 140);
-  doc.text(`Generated on ${today}  ·  avistay.com`, pageW / 2, 260, { align: "center" });
-  doc.text("Commission paid via M-Pesa. Contact hello@avistay.com for queries.", pageW / 2, 266, { align: "center" });
+  doc.text(`Generated on ${today}  ·  naivastay.com`, pageW / 2, 260, { align: "center" });
+  doc.text("Commission paid via M-Pesa. Contact hello@naivastay.com for queries.", pageW / 2, 266, { align: "center" });
 
-  doc.save(`avistay-agent-voucher-${data.booking_id.slice(0, 8)}.pdf`);
+  doc.save(`naivastay-agent-voucher-${data.booking_id.slice(0, 8)}.pdf`);
 }

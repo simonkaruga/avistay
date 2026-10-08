@@ -6,15 +6,15 @@ import type { CapacitorConfig } from "@capacitor/cli";
  * Web build for the app: `npm run build:app` (points the API at VITE_API_URL).
  */
 const config: CapacitorConfig = {
-  appId: "com.avistay.app",
-  appName: "Avistay",
+  appId: "com.naivastay.app",
+  appName: "NaivaStay",
   webDir: "dist",
   server: {
     androidScheme: "https",
   },
   ios: {
     contentInset: "never",          // we handle notches with CSS safe-area insets
-    scheme: "Avistay",
+    scheme: "NaivaStay",
   },
   android: {
     allowMixedContent: false,

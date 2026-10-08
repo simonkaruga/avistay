@@ -90,7 +90,7 @@ export default function PhotoMosaic({ images, title, onOpen }: Props) {
         )}
 
         {n >= 4 && (
-          // Avistay layout: a large lead photo, one wide photo, two small ones.
+          // NaivaStay layout: a large lead photo, one wide photo, two small ones.
           <div className="grid grid-cols-5 grid-rows-2 gap-2.5 h-[440px]">
             <Tile src={images[0]} alt={title} width={1000} onClick={() => onOpen(0)} className="col-span-3 row-span-2 rounded-3xl" />
             <Tile src={images[1]} alt={`${title}. Photo 2`} width={700} onClick={() => onOpen(1)} className="col-span-2 rounded-3xl" />

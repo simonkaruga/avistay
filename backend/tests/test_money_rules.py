@@ -25,6 +25,16 @@ TOTAL = ROOM + LEVY + FEE + DEPOSIT
 def _wire(monkeypatch):
     # Celery tasks open their own sessions — point them at the test DB.
     monkeypatch.setattr(database, "AsyncSessionLocal", session_factory)
+    # These tests check commission/penalty/deposit rules on gross amounts;
+    # withholding tax has its own test (test_launch_essentials.py).
+    from dataclasses import replace
+    from app.services import settings as platform_settings
+    fixed = replace(platform_settings.S(), withholding_tax_pct=0.0)
+    monkeypatch.setattr(platform_settings, "_current", fixed)
+
+    async def _no_reload(db, force=False):
+        return fixed
+    monkeypatch.setattr(platform_settings, "refresh", _no_reload)
     with patch("app.workers.tasks.send_b2c_payment.delay") as b2c, \
          patch("app.workers.tasks.notify_dispute_event.delay"), \
          patch("app.workers.tasks.notify_owner_cancellation.delay"), \

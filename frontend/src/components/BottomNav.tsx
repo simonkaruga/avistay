@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { isExactTab, useNavTabs } from "./navTabs";
+import { isExactTab, useNavTabs, useUnreadBadge } from "./navTabs";
 
 /** Phones and tablets; on computers the same tabs live in the top bar. */
 export default function BottomNav() {
@@ -8,6 +8,7 @@ export default function BottomNav() {
   const lastY = useRef(0);
 
   const tabs = useNavTabs();
+  const unread = useUnreadBadge();
 
   useEffect(() => {
     function onScroll() {
@@ -57,6 +58,10 @@ export default function BottomNav() {
                 />
               )}
               <span className="relative z-10"><Icon active={isActive} /></span>
+              {to === "/bookings" && unread > 0 && (
+                <span className="absolute top-1 left-1/2 ml-2 min-w-4.5 h-4.5 px-1 rounded-full bg-clay text-white text-[10px] font-bold flex items-center justify-center z-20"
+                  aria-label={`${unread} unread messages`}>{unread}</span>
+              )}
               <span className={`text-[13px] leading-none relative z-10 ${isActive ? "font-bold" : "font-medium"}`}>
                 {label}
               </span>

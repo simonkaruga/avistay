@@ -2,7 +2,7 @@ from datetime import date as date_type, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.core.deps import rate_limit, require_owner
 from app.core.timeutil import today_eat
 from app.models.models import (
+    ExternalCalendar, AuditLog,
     User, Property, PropertyImage, Booking, Availability, Dispute, OwnerAdjustment, Payment,
 )
 from app.services import ai, policy
@@ -19,9 +20,12 @@ from app.services.settings import S, refresh as refresh_settings
 from app.services.media import is_our_media_url
 from app.services.disputes import can_open
 from app.services.payments import (
-    amount_paid, card_fees_paid, dispatch_b2c, lock_booking, owner_payout_amount, payout_due_at, queue_b2c,
+    amount_paid, card_fees_paid, dispatch_b2c, host_net_payout, lock_booking, payout_due_at, queue_b2c,
 )
 
+from app.services.compliance import missing_for_live
+from app.api.messages import unread_counts
+from app.schemas.schemas import KRA_PIN_RE, clean_tra_licence
 router = APIRouter(tags=["owner"])
 
 
@@ -33,7 +37,8 @@ async def owner_dashboard(owner: User = Depends(require_owner), db: AsyncSession
     property_ids = [p.id for p in props]
 
     if not property_ids:
-        return {"properties": 0, "bookings": 0, "total_earned": 0, "pending_payout": 0, "upcoming": []}
+        return {"properties": 0, "bookings": 0, "total_earned": 0, "pending_payout": 0, "upcoming": [],
+                "calendar_sync": {"linked": 0, "last_synced_at": None, "double_bookings": []}}
 
     bookings_result = await db.execute(
         select(Booking).where(
@@ -52,7 +57,7 @@ async def owner_dashboard(owner: User = Depends(require_owner), db: AsyncSession
     )).all()
     paid_map: dict[str, int] = {k: int(v) for k, v in paid_out}
     total_earned = sum(int(v) for v in paid_map.values())
-    pending_payout = sum(owner_payout_amount(b) for b in bookings
+    pending_payout = sum(host_net_payout(b) for b in bookings
                          if b.status in ("confirmed", "checked_in") and b.id not in paid_map)
 
     upcoming = [
@@ -63,7 +68,7 @@ async def owner_dashboard(owner: User = Depends(require_owner), db: AsyncSession
             "check_out": b.check_out.isoformat(),
             "status": b.status,
             "total_amount": b.total_amount,
-            "your_payout": owner_payout_amount(b),
+            "your_payout": host_net_payout(b),
             "property_title": next((p.title for p in props if p.id == b.property_id), None),
         }
         for b in bookings if b.status == "confirmed"
@@ -75,7 +80,98 @@ async def owner_dashboard(owner: User = Depends(require_owner), db: AsyncSession
         "total_earned": total_earned,
         "pending_payout": pending_payout,
         "upcoming": upcoming[:10],
+        "calendar_sync": await _calendar_sync_status(db, property_ids, {p.id: p.title for p in props}),
     }
+
+
+async def _calendar_sync_status(db: AsyncSession, property_ids: list[str], titles: dict[str, str]) -> dict:
+    """Airbnb/Booking.com links: how many, when last checked, and any open double bookings."""
+    cals = (await db.execute(select(ExternalCalendar).where(ExternalCalendar.property_id.in_(property_ids)))).scalars().all()
+    synced = [c.last_synced_at for c in cals if c.last_synced_at]
+    since = datetime.now(timezone.utc) - timedelta(days=7)
+    events = (await db.execute(select(AuditLog).where(
+        AuditLog.event_type == "double_booking_detected", AuditLog.created_at >= since,
+    ).order_by(AuditLog.created_at.desc()))).scalars().all()
+    clashes, seen = [], set()
+    for e in events:
+        pid = (e.metadata_json or {}).get("property_id")
+        if pid not in titles or e.entity_id in seen:
+            continue
+        booking = await db.get(Booking, e.entity_id)
+        if not booking or booking.status not in ("pending", "confirmed", "checked_in"):
+            continue                                   # already resolved
+        seen.add(e.entity_id)
+        clashes.append({"booking_id": booking.id, "property_title": titles[pid],
+                        "nights": (e.metadata_json or {}).get("nights", [])})
+    return {"linked": len(cals), "last_synced_at": max(synced).isoformat() if synced else None,
+            "double_bookings": clashes}
+
+
+# ── Guest details for the host ────────────────────────────────────────────────
+
+GUEST_DETAILS_DAYS_AFTER = 30   # contact details stay visible this long after check-out
+
+
+def guest_card(guest: User | None, b: Booking) -> dict | None:
+    """Who is coming. Contact details only for a paid booking, and not forever
+    (data protection: share what the host needs, for as long as they need it)."""
+    if guest is None or guest.deleted_at is not None:
+        return None
+    paid = b.status in ("confirmed", "checked_in", "completed")
+    recent = b.check_out >= today_eat() - timedelta(days=GUEST_DETAILS_DAYS_AFTER)
+    first = (guest.name or "").split(" ")[0] or "Guest"
+    if not (paid and recent):
+        return {"name": first, "phone": None, "email": None, "id_verified": bool(guest.verified_at), "shared": False}
+    return {"name": guest.name or first, "phone": guest.phone, "email": guest.email,
+            "id_verified": bool(guest.verified_at), "shared": True}
+
+
+# ── Tax details (KRA PIN) and listing licences ────────────────────────────────
+
+class ComplianceIn(BaseModel):
+    kra_pin: str = Field(..., pattern=KRA_PIN_RE)
+
+    @field_validator("kra_pin", mode="before")
+    @classmethod
+    def _upper(cls, v):
+        return str(v or "").strip().upper().replace(" ", "")
+
+
+@router.get("/compliance")
+async def get_compliance(owner: User = Depends(require_owner), db: AsyncSession = Depends(get_db)):
+    """What's still needed before the host's listings can go live and be paid."""
+    props = (await db.execute(select(Property).where(Property.owner_id == owner.id))).scalars().all()
+    return {
+        "kra_pin": owner.kra_pin,
+        "payout_phone": owner.phone,
+        "withholding_tax_pct": S().withholding_tax_pct,
+        "listings": [{"id": p.id, "title": p.title, "active": p.active, "tra_licence_no": p.tra_licence_no,
+                      "missing": missing_for_live(p, owner)} for p in props],
+    }
+
+
+@router.put("/compliance")
+async def put_compliance(body: ComplianceIn, owner: User = Depends(require_owner), db: AsyncSession = Depends(get_db)):
+    owner.kra_pin = body.kra_pin
+    await log_event(db, "host_kra_pin_set", owner.id, owner.id, {})
+    return {"kra_pin": owner.kra_pin}
+
+
+class LicenceIn(BaseModel):
+    tra_licence_no: str = Field(..., min_length=3, max_length=40)
+
+
+@router.put("/properties/{property_id}/licence")
+async def put_licence(property_id: str, body: LicenceIn, owner: User = Depends(require_owner),
+                      db: AsyncSession = Depends(get_db)):
+    """Save a listing's Tourism Regulatory Authority licence number."""
+    prop = await _owned_property(db, property_id, owner)
+    try:
+        prop.tra_licence_no = clean_tra_licence(body.tra_licence_no)   # same rules as the listing form
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    await log_event(db, "listing_licence_set", prop.id, owner.id, {"tra_licence_no": prop.tra_licence_no})
+    return {"id": prop.id, "tra_licence_no": prop.tra_licence_no, "missing": missing_for_live(prop, owner)}
 
 
 # ── Owner bookings list ────────────────────────────────────────────────────────
@@ -105,6 +201,9 @@ async def owner_bookings(
     )).scalars().all():
         disputes[d.booking_id] = d  # latest wins
     titles = {p.id: p.title for p in props}
+    guests = {u.id: u for u in (await db.execute(
+        select(User).where(User.id.in_({b.guest_id for b in bookings})))).scalars()} if bookings else {}
+    unread = await unread_counts(db, owner.id, ids)
 
     out = []
     for b in bookings:
@@ -113,12 +212,14 @@ async def owner_bookings(
         case = disputes.get(b.id)
         row.update({
             "property_title": titles.get(b.property_id),
-            "your_payout": owner_payout_amount(b),
+            "your_payout": host_net_payout(b),
             "payout_status": payouts.get(b.id),
             "payout_due_at": payout_due_at(b).isoformat() if b.status in ("confirmed", "checked_in") else None,
             "dispute": {"id": case.id, "status": case.status, "opener_role": case.opener_role} if case else None,
             "can_cancel": b.status == "confirmed" and b.check_in >= today_eat(),
             "can_report_damage": can_open("owner", b) and not (case and case.status == "open" and case.opener_role == "owner"),
+            "guest": guest_card(guests.get(b.guest_id), b),
+            "unread_messages": unread.get(b.id, 0),
         })
         out.append(row)
     return out
@@ -233,7 +334,7 @@ async def add_images(
     await _owned_property(db, property_id, owner)
     bad = [u for u in body.urls if not is_our_media_url(u)]
     if bad:
-        raise HTTPException(status_code=422, detail="Photos must be uploaded through Avistay")
+        raise HTTPException(status_code=422, detail="Photos must be uploaded through NaivaStay")
     images = await _gallery(db, property_id)
     known = {i.cloudinary_url for i in images}
     new_urls = list(dict.fromkeys(u for u in body.urls if u not in known))  # dedupe, keep order
@@ -308,7 +409,7 @@ async def generate_description(
     await rate_limit(f"ai_desc:{owner.id}", limit=20, window=86400)   # cost guard
     text = await ai.ask(
         system=(
-            "You write holiday-home listings for Avistay, a booking site for Naivasha, Kenya. "
+            "You write holiday-home listings for NaivaStay, a booking site for Naivasha, Kenya. "
             "Write from the host's notes only: never add amenities, views or distances they didn't mention. "
             "Warm, specific and honest, like a proud local host. Two short paragraphs, 90 to 150 words, "
             "plain text, no headings, no emojis, no em dashes, no clichés like 'nestled' or 'oasis'."

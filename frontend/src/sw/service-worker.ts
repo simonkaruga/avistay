@@ -65,7 +65,7 @@ self.addEventListener("push", (event: PushEvent) => {
   if (!event.data) return;
   const data = event.data.json();
   event.waitUntil(
-    self.registration.showNotification(data.title ?? "Avistay", {
+    self.registration.showNotification(data.title ?? "NaivaStay", {
       body: data.body,
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",

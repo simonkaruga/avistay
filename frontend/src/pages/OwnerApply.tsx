@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useProtectionWindow, useSite } from "../components/SiteNotice";
+import { useHostCommissionPct, useProtectionWindow } from "../components/SiteNotice";
 import { useNavigate } from "react-router-dom";
 import { Banknote, CalendarSync, CheckCircle2, Clock, Percent, ShieldCheck, SlidersHorizontal, XCircle } from "lucide-react";
 import { useSEO } from "../utils/seo";
@@ -10,9 +10,9 @@ const PROPERTY_TYPES = ["Cottage", "Villa", "House", "Apartment", "Conference / 
 const inputCls = "w-full bg-(--bg-surface) border border-(--border) text-(--text-primary) rounded-xl px-4 py-3 text-sm outline-hidden focus:border-teal transition-colors";
 
 export default function OwnerApply() {
-  const site = useSite();
+  const commissionPct = useHostCommissionPct();
   const payWindow = useProtectionWindow();
-  useSEO({ title: "List Your Property on Avistay", description: "Apply to list your Naivasha property on Avistay." });
+  useSEO({ title: "List Your Property on NaivaStay", description: "Apply to list your Naivasha property on NaivaStay." });
 
   const navigate = useNavigate();
   const [step, setStep] = useState<"form" | "submitted" | "check">("form");
@@ -90,13 +90,13 @@ export default function OwnerApply() {
 
       <div className="px-4 pt-6 max-w-lg mx-auto space-y-5">
 
-        {/* Why host with Avistay — the details owners decide on */}
+        {/* Why host with NaivaStay — the details owners decide on */}
         <section className="bg-(--bg-surface) rounded-2xl p-4 border border-(--border)">
-          <h2 className="font-semibold text-(--text-primary) mb-3">Why host with Avistay</h2>
+          <h2 className="font-semibold text-(--text-primary) mb-3">Why host with NaivaStay</h2>
           <ul className="space-y-3">
             {[
               { Icon: Banknote, title: "Paid on M-Pesa, fast", text: `Your payout reaches your M-Pesa ${payWindow} after each guest checks in.` },
-              { Icon: Percent, title: "Fair, simple commission", text: `${site.commissionPct}% of the room price. Our first 20 hosts pay just 7%. Guests pay the service fee.` },
+              { Icon: Percent, title: "Fair, simple commission", text: `${commissionPct}% of the room price. Our first 20 hosts pay just 7%. Guests pay the service fee.` },
               { Icon: SlidersHorizontal, title: "Your home, your rules", text: "You set the price, minimum stay, cancellation policy, damage deposit, check-in times and house rules." },
               { Icon: ShieldCheck, title: "Protected against damage", text: "If you set a deposit, we hold it and pay you from it when damage is reported and confirmed." },
               { Icon: CalendarSync, title: "No double bookings", text: "Sync your Airbnb and Booking.com calendars, or block dates from WhatsApp." },

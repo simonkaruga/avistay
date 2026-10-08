@@ -301,11 +301,11 @@ def _listing_facts(prop: Property, cfg, cards: bool) -> str:
         f"Directions/landmark: {prop.landmark_instructions}" if prop.landmark_instructions else "",
         f"Host's other rules: {prop.house_rules}" if prop.house_rules else "",
         f"Description (written by the host): {prop.description}" if prop.description else "",
-        "\nHow booking works on Avistay:",
+        "\nHow booking works on NaivaStay:",
         f"- Guests tap 'Book now' on this page. Payment by M-Pesa{' or card (Visa, Mastercard, Apple Pay; a card fee applies)' if cards else ''}, in Kenyan shillings.",
         f"- On top of the room price: a KES {cfg.service_fee_kes:,} service fee and a {cfg.tourism_levy_pct:g}% tourism levy.",
-        f"- Avistay pays the host only {cfg.guest_dispute_hours} hours after check-in, so guests can report a problem in the app before then.",
-        f"- Avistay support: {cfg.support_phone} (WhatsApp) or {cfg.support_email}.",
+        f"- NaivaStay pays the host only {cfg.guest_dispute_hours} hours after check-in, so guests can report a problem in the app before then.",
+        f"- NaivaStay support: {cfg.support_phone} (WhatsApp) or {cfg.support_email}.",
     ]
     return "\n".join(line for line in lines if line)
 
@@ -329,14 +329,14 @@ async def property_chat(
     cfg = await refresh_settings(db)
 
     if not ai.enabled():
-        return {"reply": f"I can't answer questions just yet. For anything about {prop.title}, WhatsApp Avistay on {cfg.support_phone} and we'll check with the host.",
+        return {"reply": f"I can't answer questions just yet. For anything about {prop.title}, WhatsApp NaivaStay on {cfg.support_phone} and we'll check with the host.",
                 "ai": False}
 
-    system = f"""You are Avi, Avistay's friendly AI assistant, on the page for one holiday home in Naivasha, Kenya.
-If asked who you are, say you're Avi, Avistay's AI assistant.
+    system = f"""You are Avi, NaivaStay's friendly AI assistant, on the page for one holiday home in Naivasha, Kenya.
+If asked who you are, say you're Avi, NaivaStay's AI assistant.
 Answer the guest's questions about this home using ONLY the facts below. If the answer isn't in the facts
 (for example WiFi speed, a heated pool, exact distances), say you're not sure and suggest they ask the host
-or WhatsApp Avistay. Never invent amenities, prices, availability or promises. You can't check dates or make
+or WhatsApp NaivaStay. Never invent amenities, prices, availability or promises. You can't check dates or make
 bookings: for availability, point them to the calendar on this page. You can share general, well-known tips
 about visiting Naivasha (Hell's Gate, Crescent Island, Mount Longonot, boat rides), but keep the focus on this home.
 Be warm, clear and brief: under 90 words, plain sentences, no markdown, no em dashes.
@@ -349,7 +349,7 @@ FACTS ABOUT THIS HOME
         turns.pop(0)
     reply = await ai.ask(system=system, messages=turns + [{"role": "user", "content": body.message}], max_tokens=350)
     if reply is None:
-        return {"reply": f"Sorry, I couldn't answer that right now. Try again in a moment, or WhatsApp Avistay on {cfg.support_phone}.",
+        return {"reply": f"Sorry, I couldn't answer that right now. Try again in a moment, or WhatsApp NaivaStay on {cfg.support_phone}.",
                 "ai": True}
     return {"reply": reply, "ai": True}
 
@@ -383,7 +383,7 @@ async def _reload(db: AsyncSession, property_id: str) -> Property:
 
 # ── Dynamic sitemap ────────────────────────────────────────────────────────────
 
-BASE = "https://avistay.com"
+BASE = "https://naivastay.com"
 
 STATIC_PAGES = [
     ("/",                    "1.0",  "daily"),

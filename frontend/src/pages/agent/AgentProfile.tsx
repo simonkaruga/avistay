@@ -85,7 +85,7 @@ export default function AgentProfile() {
       {/* Support + logout */}
       <div className="bg-white rounded-2xl shadow-xs overflow-hidden">
         <a
-          href={site.whatsapp("Hi Avistay Agent Support")}
+          href={site.whatsapp("Hi NaivaStay Agent Support")}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-between px-4 py-3.5 border-b border-black/5"

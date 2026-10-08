@@ -10,8 +10,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Run as an unprivileged user: a bug in the app must not mean full control of the container.
-RUN useradd --create-home --uid 10001 avistay && chown -R avistay /app
-USER avistay
+RUN useradd --create-home --uid 10001 naivastay && chown -R naivastay /app
+USER naivastay
 
 EXPOSE 8000
 

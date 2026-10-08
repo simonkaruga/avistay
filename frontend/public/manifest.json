@@ -1,14 +1,15 @@
 {
-  "name": "Avistay",
-  "short_name": "Avistay",
+  "name": "NaivaStay",
+  "short_name": "NaivaStay",
   "description": "Beautiful stays. Better experiences. Verified holiday homes in Naivasha, paid safely by M-Pesa or card.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#141b16",
+  "background_color": "#ffffff",
   "theme_color": "#1f4d36",
   "orientation": "portrait-primary",
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

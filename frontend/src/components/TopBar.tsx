@@ -1,11 +1,12 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { User } from "lucide-react";
-import { isExactTab, useNavTabs } from "./navTabs";
+import { isExactTab, useNavTabs, useUnreadBadge } from "./navTabs";
 
 export default function TopBar() {
   const { pathname } = useLocation();
   const onProfile = pathname === "/profile";
   const tabs = useNavTabs();
+  const unread = useUnreadBadge();
   const isHost = tabs.some(t => t.to === "/owner");
 
   return (
@@ -18,13 +19,9 @@ export default function TopBar() {
         WebkitBackdropFilter: "blur(16px)",
       }}
     >
-      <NavLink to="/" className="flex items-center gap-2 mr-auto" aria-label="Avistay home">
-        <img src="/logo-mark.svg" alt="" className="shrink-0 w-9 h-9 lg:w-11 lg:h-11" />
-        <span
-          className="font-display italic text-forest leading-none tracking-tight text-[1.65rem] lg:text-[2rem]"
-        >
-          Avistay
-        </span>
+      <NavLink to="/" className="flex items-center gap-2 mr-auto" aria-label="NaivaStay home">
+        <img src="/logo-mark.png" alt="" className="shrink-0 h-9 w-auto lg:h-11" />
+        <img src="/logo-wordmark.png" alt="NaivaStay" className="shrink-0 h-6 w-auto lg:h-7" />
       </NavLink>
 
       {/* Computers: main sections on the right of the logo line (phones & tablets: bottom tabs) */}
@@ -43,7 +40,11 @@ export default function TopBar() {
                   ? "text-forest font-semibold bg-forest/10"
                   : "text-(--text-muted) font-medium hover:text-(--text-primary) hover:bg-(--bg-primary)"
               }`}>
-            {({ isActive }) => <><Icon active={isActive} size={18} />{label}</>}
+            {({ isActive }) => <><Icon active={isActive} size={18} />{label}
+              {to === "/bookings" && unread > 0 && (
+                <span className="min-w-4.5 h-4.5 px-1 rounded-full bg-clay text-white text-[10px] font-bold flex items-center justify-center"
+                  aria-label={`${unread} unread messages`}>{unread}</span>
+              )}</>}
           </NavLink>
         ))}
       </nav>

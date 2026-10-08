@@ -19,9 +19,9 @@ interface SEOMeta {
   noIndex?:     boolean;
 }
 
-const SITE_NAME    = "Avistay";
+const SITE_NAME    = "NaivaStay";
 const DEFAULT_DESC = "Book holiday homes, cottages, villas & campsites in Naivasha, Kenya. Secure M-Pesa and card payments. Verified listings. Instant confirmation.";
-const DEFAULT_IMAGE = "https://avistay.com/icons/icon-512.png";
+const DEFAULT_IMAGE = "https://naivastay.com/og-image.png";
 
 function setMeta(attr: string, key: string, value: string) {
   let el = document.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"]`);
@@ -53,7 +53,7 @@ export function useSEO({ title, description, image, url, type = "website", jsonL
     const fullTitle = `${title} | ${SITE_NAME}`;
     const desc      = description ?? DEFAULT_DESC;
     const img       = image       ?? DEFAULT_IMAGE;
-    const canonical = url ? `https://avistay.com${url}` : window.location.href;
+    const canonical = url ? `https://naivastay.com${url}` : window.location.href;
 
     document.title = fullTitle;
 

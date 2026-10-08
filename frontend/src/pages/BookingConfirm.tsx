@@ -34,7 +34,7 @@ interface NavState {
 
 /** Receipt email typed at checkout by guests whose account has none. */
 function savedCardEmail(): string | undefined {
-  try { return sessionStorage.getItem("avistay.cardEmail") || undefined; } catch { return undefined; }
+  try { return sessionStorage.getItem("naivastay.cardEmail") || undefined; } catch { return undefined; }
 }
 
 export default function BookingConfirm() {
@@ -105,7 +105,7 @@ export default function BookingConfirm() {
       });
       if (res.status === 410) { setStage("timeout"); return; }
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) { setFailMsg(body.detail ?? "Could not open the card page. Try again"); setStage("failed"); return; }
+      if (!res.ok) { setFailMsg(body.detail ?? "Could not open Paystack. Try again"); setStage("failed"); return; }
       setMethod("card");
       if (isNativeApp) { window.open(body.authorization_url, "_blank"); setFailMsg(null); setStage("pending"); }
       else window.location.assign(body.authorization_url);
@@ -191,8 +191,8 @@ export default function BookingConfirm() {
           {/* M-Pesa ref row */}
           {booking.mpesa_ref && (
             <div className="flex items-center justify-between bg-(--bg-surface) rounded-2xl px-4 py-3 border border-(--border)">
-              <span className="text-xs text-(--text-muted) font-medium">{booking.mpesa_ref.startsWith("AVC-") ? "Card payment ref" : "M-Pesa ref"}</span>
-              <span className="font-mono text-sm font-bold text-(--text-primary) truncate ml-3">{booking.mpesa_ref.startsWith("AVC-") ? booking.mpesa_ref.slice(4, 12).toUpperCase() : booking.mpesa_ref}</span>
+              <span className="text-xs text-(--text-muted) font-medium">{booking.mpesa_ref.startsWith("NSC-") ? "Card payment ref" : "M-Pesa ref"}</span>
+              <span className="font-mono text-sm font-bold text-(--text-primary) truncate ml-3">{booking.mpesa_ref.startsWith("NSC-") ? booking.mpesa_ref.slice(4, 12).toUpperCase() : booking.mpesa_ref}</span>
             </div>
           )}
 
@@ -254,8 +254,8 @@ export default function BookingConfirm() {
           <button
             onClick={() =>
               navigator.share
-                ? navigator.share({ title: "I just booked in Naivasha!", url: `https://avistay.com/property/${booking.property_id}` }).catch(() => {})
-                : navigator.clipboard.writeText(`https://avistay.com/property/${booking.property_id}`)
+                ? navigator.share({ title: "I just booked in Naivasha!", url: `https://naivastay.com/property/${booking.property_id}` }).catch(() => {})
+                : navigator.clipboard.writeText(`https://naivastay.com/property/${booking.property_id}`)
             }
             className="w-full flex items-center justify-center gap-2 bg-[#25D366] text-white font-bold py-4 rounded-2xl active:scale-[.98]">
             <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
@@ -333,7 +333,7 @@ export default function BookingConfirm() {
           className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold border border-(--border) text-(--text-primary) disabled:opacity-60">
           {method === "card"
             ? <><Smartphone size={16} aria-hidden="true" /> Pay with M-Pesa instead</>
-            : <><CreditCard size={16} aria-hidden="true" /> Pay by card instead</>}
+            : <><CreditCard size={16} aria-hidden="true" /> Pay with Paystack instead</>}
         </button>
       </div>
     </div>
@@ -424,7 +424,7 @@ export default function BookingConfirm() {
         <h1 className="font-semibold text-(--text-primary) text-2xl mb-2">{method === "card" ? "Confirming your card payment" : "Check your phone"}</h1>
         <p className="text-(--text-muted) text-sm leading-relaxed max-w-[280px] mb-8">
           {method === "card"
-            ? "This usually takes a few seconds. If you closed the card page before paying, open it again below."
+            ? "This usually takes a few seconds. If you closed the Paystack page before paying, open it again below."
             : "Enter your M-Pesa PIN on the prompt to complete the booking."}
         </p>
 
@@ -439,7 +439,7 @@ export default function BookingConfirm() {
         {method === "card" && (
           <button onClick={retryCard} disabled={retrying}
             className="mb-4 px-6 py-3 rounded-2xl font-semibold border border-(--border) text-(--text-primary) disabled:opacity-60">
-            {retrying ? "Opening…" : "Open the card page again"}
+            {retrying ? "Opening…" : "Open Paystack again"}
           </button>
         )}
 

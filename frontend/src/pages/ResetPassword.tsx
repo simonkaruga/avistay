@@ -56,7 +56,7 @@ export default function ResetPassword() {
         style={{ background: "linear-gradient(160deg, #1f4d36 0%, #2a6446 40%, #2b6777 78%, #141b16 100%)" }}>
         <div className="absolute inset-0 opacity-30"
           style={{ backgroundImage: "radial-gradient(1px 1px at 20% 20%, white, transparent), radial-gradient(1px 1px at 70% 15%, white, transparent), radial-gradient(1.5px 1.5px at 45% 35%, white, transparent)" }} />
-        <p className="text-mint text-[13px] font-semibold tracking-[0.3em] uppercase mb-3 relative z-10">Avistay</p>
+        <p className="text-mint text-[13px] font-semibold tracking-[0.3em] uppercase mb-3 relative z-10">NaivaStay</p>
         <h1 className="font-display italic text-white relative z-10" style={{ fontSize: "clamp(1.8rem, 8vw, 2.5rem)" }}>
           Reset password
         </h1>

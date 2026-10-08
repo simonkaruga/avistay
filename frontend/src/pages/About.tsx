@@ -8,8 +8,8 @@ export default function About() {
   const protectWindow = useProtectionWindow();
   const navigate = useNavigate();
   useSEO({
-    title: "About Avistay",
-    description: "Avistay is Kenya's first local-first vacation rental platform for Kenyan guests and property owners. Book verified holiday homes in Naivasha with M-Pesa or card.",
+    title: "About NaivaStay",
+    description: "NaivaStay is Kenya's first local-first vacation rental platform for Kenyan guests and property owners. Book verified holiday homes in Naivasha with M-Pesa or card.",
   });
 
   return (
@@ -39,7 +39,7 @@ export default function About() {
           </h2>
           <p className="text-white/55 text-sm mt-4 max-w-xs leading-relaxed relative z-10">
             <strong className="text-(--text-primary)">Beautiful stays. Better experiences.</strong>{" "}
-            Avistay is Kenya's first local-first vacation rental platform, designed from the ground up for the
+            NaivaStay is Kenya's first local-first vacation rental platform, designed from the ground up for the
             Kenyan market, with M-Pesa at its core and cards for visitors.
           </p>
         </div>
@@ -67,7 +67,7 @@ export default function About() {
               {[
                 { Icon: Smartphone,   color: "#2b6777", title: "Kenya first",             body: "Prices in Kenyan shillings. Pay by M-Pesa in seconds, or by card if you're visiting from abroad. Built for Kenyans first." },
                 { Icon: ShieldCheck,  color: "#1f4d36", title: "Guest protection always", body: "Your money never goes to a host until you physically check in. That's a promise, not a policy." },
-                { Icon: HomeIcon,     color: "#b4511f", title: "Fair for owners too",     body: "Free to list, a simple commission only when you're booked, and M-Pesa payouts 24 hours after your guest checks in." },
+                { Icon: HomeIcon,     color: "#b4511f", title: "Fair for owners too",     body: `Free to list, and M-Pesa payouts ${protectWindow} after the guest checks in.` },
                 { Icon: Leaf,         color: "#7dbf8e", title: "Local community",         body: "Every property listed supports a local Naivasha family. We don't list chains or corporate-owned properties." },
               ].map(v => (
                 <div key={v.title} className="flex gap-3 bg-(--bg-surface) rounded-2xl p-4 border border-(--border)">
@@ -94,7 +94,7 @@ export default function About() {
                 { v: "~90 min", l: "From Nairobi via A104" },
                 { v: `KES ${site.serviceFee.toLocaleString()}`, l: "Service fee per booking" },
                 { v: protectWindow, l: "Host payout after check-in" },
-                { v: `${site.commissionPct}%`, l: "Host commission (free to list)" },
+                { v: "M-Pesa", l: "Pay in seconds, no card needed" },
               ].map(s => (
                 <div key={s.l} className="px-4 py-3">
                   <p className="font-bold text-lg text-(--text-primary) leading-none">{s.v}</p>
@@ -145,10 +145,9 @@ export default function About() {
 
           <div className="text-center pb-2 space-y-1">
             <p className="text-[13px] text-(--text-muted)">
-              © {new Date().getFullYear()} Avistay
+              NaivaStay is owned and operated by
             </p>
             <p className="text-xs text-(--text-muted)">
-              Built by{" "}
               <span className="font-semibold text-forest">Avinaya Solutions Ltd</span>
               {" "}· Naivasha, Kenya
             </p>

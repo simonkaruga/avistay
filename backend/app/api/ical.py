@@ -8,15 +8,16 @@ from pydantic import BaseModel
 from app.workers.queue import enqueue
 from app.core.database import get_db
 from app.core.deps import require_owner
-from app.models.models import User, Property, Booking, ExternalCalendar
-from app.services.ical import UnsafeUrl, generate_ical, parse_remote_ical
+from app.models.models import User, Property, Booking, ExternalCalendar, Availability
+from app.services.ical import UnsafeUrl, date_runs, generate_ical, parse_remote_ical
 
+from app.core.timeutil import today_eat
 router = APIRouter(tags=["ical"])
 
 PLATFORMS = {"airbnb", "booking", "vrbo", "other"}
 
 
-# ── iCal export (Avistay → Airbnb/Booking.com) ──────────────────────────
+# ── iCal export (NaivaStay → Airbnb/Booking.com) ──────────────────────────
 
 @router.get("/export/{property_uuid}")
 async def export_ical(property_uuid: str, db: AsyncSession = Depends(get_db)):
@@ -32,13 +33,21 @@ async def export_ical(property_uuid: str, db: AsyncSession = Depends(get_db)):
         )
     )
     bookings = result.scalars().all()
-    cal_bytes = generate_ical(property_uuid, [
-        {"id": b.id, "check_in": b.check_in, "check_out": b.check_out} for b in bookings
-    ])
+    # Nights the host closed on NaivaStay (by hand or WhatsApp) must close on the
+    # other sites too. Nights imported FROM those sites are left out: they
+    # already know, and echoing them back can keep cancelled dates blocked.
+    closed = (await db.execute(select(Availability.date).where(
+        Availability.property_id == property_uuid, Availability.is_blocked == True,
+        Availability.source == "manual", Availability.date >= today_eat(),
+    ))).scalars().all()
+    events = [{"id": b.id, "check_in": b.check_in, "check_out": b.check_out} for b in bookings]
+    events += [{"id": f"closed-{start.isoformat()}-{property_uuid[:8]}", "check_in": start, "check_out": end,
+                "summary": "Not available"} for start, end in date_runs(list(closed))]
+    cal_bytes = generate_ical(property_uuid, events)
     return Response(
         content=cal_bytes,
         media_type="text/calendar",
-        headers={"Content-Disposition": f'attachment; filename="avistay-{property_uuid[:8]}.ics"'},
+        headers={"Content-Disposition": f'attachment; filename="naivastay-{property_uuid[:8]}.ics"'},
     )
 
 # Keep old URL working for any already-connected platforms

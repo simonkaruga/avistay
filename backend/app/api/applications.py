@@ -148,10 +148,10 @@ async def review_application(
     if app.email:
         from app.services.email import send_email, application_approved_html
         if body.status == "approved":
-            await send_email(app.email, "Your Avistay application is approved!",
+            await send_email(app.email, "Your NaivaStay application is approved!",
                 application_approved_html(app.full_name))
         elif body.rejection_reason:
-            await send_email(app.email, "Update on your Avistay application",
+            await send_email(app.email, "Update on your NaivaStay application",
                 f"<p>Hi {app.full_name},</p><p>Unfortunately your application was not approved at this time.</p><p>Reason: {body.rejection_reason}</p>")
 
     return {"status": app.status}

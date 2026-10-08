@@ -8,7 +8,7 @@ use_null_pool()
 
 # No result backend: nothing reads task results, and connecting to one made a
 # web request hang ~20s whenever Redis was unreachable.
-celery = Celery("avistay", broker=settings.REDIS_URL,
+celery = Celery("naivastay", broker=settings.REDIS_URL,
                 include=["app.workers.tasks"])   # the worker must import the task code to run it
 celery.conf.task_ignore_result = True
 

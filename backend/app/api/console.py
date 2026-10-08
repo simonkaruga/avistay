@@ -1,5 +1,5 @@
 """
-Operator console (Admin → everything). Lets the team run Avistay without a
+Operator console (Admin → everything). Lets the team run NaivaStay without a
 developer: people, listings, bookings, money, promotions, settings, audit.
 
 Admins can operate; super admins can additionally change platform settings,
@@ -25,8 +25,10 @@ from app.models.models import (
     Agent, AgentReferral, AuditLog, Booking, Dispute, Payment, PromoCode, Property, User,
 )
 from app.schemas.schemas import PropertyCreate, PropertyOut
+from app.services import paystack
 from app.services import settings as platform_settings
 from app.services.agents import mark_commission_paid
+from app.services.compliance import go_live_error, missing_for_live
 from app.services.payments import amount_paid, card_fees_paid, dispatch_b2c, lock_booking, queue_b2c, release_booking_dates
 
 router = APIRouter(tags=["console"])
@@ -61,7 +63,19 @@ async def overview(admin: User = Depends(require_admin), db: AsyncSession = Depe
     pay_counts = {k: v for k, v in (await db.execute(
         select(Payment.status, func.count()).where(Payment.type != "charge").group_by(Payment.status)
     )).all()}
+    money_in = {"mpesa": {"count": 0, "amount": 0}, "card": {"count": 0, "amount": 0, "card_fees": 0}}
+    for method, n, amount, fees in (await db.execute(
+        select(Payment.method, func.count(), func.coalesce(func.sum(Payment.amount), 0),
+               func.coalesce(func.sum(Payment.fee_amount), 0))
+        .where(Payment.type == "charge", Payment.status == "completed", Payment.created_at >= since)
+        .group_by(Payment.method)
+    )).all():
+        row = money_in.setdefault(method, {"count": 0, "amount": 0})
+        row["count"], row["amount"] = n, int(amount)
+        if method == "card":
+            row["card_fees"] = int(fees)
     return {
+        "guest_payments": {"paystack": paystack.mode(), "last_30_days": money_in},
         "last_30_days": {
             "bookings": agg[0], "room_value": int(agg[1]),
             "revenue": int(agg[2]) + int(agg[3]),            # service fees + commission
@@ -76,6 +90,8 @@ async def overview(admin: User = Depends(require_admin), db: AsyncSession = Depe
             "open_disputes": (await count(select(func.count(Dispute.id)).where(Dispute.status == "open"))).scalar(),
             "payments_processing": pay_counts.get("processing", 0),
             "payments_failed": pay_counts.get("failed", 0),
+            "double_bookings": (await count(select(func.count(func.distinct(AuditLog.entity_id))).where(
+                AuditLog.event_type == "double_booking_detected", AuditLog.created_at >= now - timedelta(days=7)))).scalar(),
         },
         "totals": {
             "users": (await count(select(func.count(User.id)).where(User.deleted_at.is_(None)))).scalar(),
@@ -173,11 +189,14 @@ async def list_listings(
     elif state == "paused":
         stmt = stmt.where(Property.active == False, Property.verified_tier > 0)
     rows = (await db.execute(stmt.order_by(Property.created_at.desc()).offset((page - 1) * PAGE).limit(PAGE))).all()
+    owner_ids = {p.owner_id for p, _, _ in rows}
+    owners = {u.id: u for u in (await db.execute(select(User).where(User.id.in_(owner_ids)))).scalars()} if owner_ids else {}
     return [{
         "id": p.id, "title": p.title, "type": p.type, "area": p.area, "price_per_night": p.price_per_night,
         "active": p.active, "verified_tier": p.verified_tier, "photos": len(p.images),
         "cover": next((i.cloudinary_url for i in sorted(p.images, key=lambda i: i.display_order)), None),
         "owner_name": name, "owner_phone": phone, "created_at": _iso(p.created_at),
+        "missing": missing_for_live(p, owners.get(p.owner_id)),
     } for p, name, phone in rows]
 
 
@@ -221,6 +240,10 @@ async def set_listing_status(property_id: str, body: ListingStatus, admin: User 
     prop = await db.get(Property, property_id)
     if not prop:
         raise HTTPException(status_code=404, detail="Listing not found")
+    if body.active:
+        problem = go_live_error(prop, await db.get(User, prop.owner_id))
+        if problem:
+            raise HTTPException(status_code=409, detail=problem)
     prop.active = body.active
     if body.verified_tier is not None:
         prop.verified_tier = body.verified_tier
@@ -305,6 +328,7 @@ def _payment_out(p: Payment) -> dict:
 async def list_payments(
     status_filter: Optional[str] = Query(None, alias="status"),
     type_filter: Optional[str] = Query(None, alias="type"),
+    method_filter: Optional[Literal["mpesa", "card"]] = Query(None, alias="method"),
     page: int = Query(1, ge=1),
     admin: User = Depends(require_admin), db: AsyncSession = Depends(get_db),
 ):
@@ -313,6 +337,8 @@ async def list_payments(
         stmt = stmt.where(Payment.status == status_filter)
     if type_filter:
         stmt = stmt.where(Payment.type == type_filter)
+    if method_filter:
+        stmt = stmt.where(Payment.method == method_filter)
     rows = (await db.execute(stmt.order_by(Payment.created_at.desc()).offset((page - 1) * PAGE).limit(PAGE))).scalars().all()
     return [_payment_out(p) for p in rows]
 
@@ -521,5 +547,46 @@ async def levy_report(
         w.writerows(lines)
         w.writerow({"booking": "TOTAL", "room_amount": totals["room_amount"], "levy": totals["levy"]})
         return StreamingResponse(iter([buf.getvalue()]), media_type="text/csv",
-                                 headers={"Content-Disposition": f'attachment; filename="avistay-tourism-levy-{month}.csv"'})
+                                 headers={"Content-Disposition": f'attachment; filename="naivastay-tourism-levy-{month}.csv"'})
+    return {"month": month, "totals": totals, "lines": lines}
+
+
+
+@router.get("/reports/withholding")
+async def withholding_report(
+    month: str = Query(..., pattern=r"^\d{4}-\d{2}$", description="YYYY-MM"),
+    format: Literal["json", "csv"] = "json",
+    admin: User = Depends(require_admin), db: AsyncSession = Depends(get_db),
+):
+    """Withholding tax deducted from host payouts in the month: what to file and
+    remit to KRA, with each host's KRA PIN (blank PINs need chasing)."""
+    y, m = map(int, month.split("-"))
+    start = datetime(y, m, 1, tzinfo=timezone.utc)
+    end = datetime(y + (m == 12), (m % 12) + 1, 1, tzinfo=timezone.utc)
+    rows = (await db.execute(
+        select(Payment, Booking, Property.title, User.name, User.kra_pin)
+        .join(Booking, Booking.id == Payment.booking_id)
+        .join(Property, Property.id == Booking.property_id)
+        .join(User, User.id == Property.owner_id)
+        .where(Payment.type == "payout", Payment.status.in_(["pending", "processing", "completed"]),
+               Payment.created_at >= start, Payment.created_at < end)
+        .order_by(Payment.created_at)
+    )).all()
+    lines = [{"date": _iso(p.created_at)[:10], "host": name or "Host", "kra_pin": pin or "",
+              "property": title, "booking": b.id[:8].upper(),
+              "gross": b.room_amount - b.commission_kes, "tax_withheld": p.tax_withheld or 0,
+              "paid_to_host": p.amount, "status": p.status}
+             for p, b, title, name, pin in rows]
+    totals = {"payouts": len(lines), "gross": sum(r["gross"] for r in lines),
+              "tax_withheld": sum(r["tax_withheld"] for r in lines),
+              "missing_pins": len({r["host"] for r in lines if not r["kra_pin"]})}
+    if format == "csv":
+        buf = io.StringIO()
+        fields = ["date", "host", "kra_pin", "property", "booking", "gross", "tax_withheld", "paid_to_host", "status"]
+        w = csv.DictWriter(buf, fieldnames=fields)
+        w.writeheader()
+        w.writerows(lines)
+        w.writerow({"date": "TOTAL", "gross": totals["gross"], "tax_withheld": totals["tax_withheld"]})
+        return StreamingResponse(iter([buf.getvalue()]), media_type="text/csv",
+                                 headers={"Content-Disposition": f'attachment; filename="naivastay-withholding-tax-{month}.csv"'})
     return {"month": month, "totals": totals, "lines": lines}

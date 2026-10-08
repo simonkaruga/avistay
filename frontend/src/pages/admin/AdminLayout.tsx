@@ -4,11 +4,11 @@ import { Link, NavLink, Route, Routes } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import {
   Banknote, CalendarCheck, Check, CheckCircle2, ClipboardList, FileSpreadsheet, Gavel, History, Home,
-  Handshake, LayoutDashboard, LayoutTemplate, Lock, Settings, Tag, Users, X,
+  Handshake, Landmark, LayoutDashboard, LayoutTemplate, Lock, Settings, Tag, Users, X,
 } from "lucide-react";
 import { api, apiJson } from "../../utils/api";
 import {
-  AgentsAdmin, AuditAdmin, BookingsAdmin, ListingsAdmin, Overview, PaymentsAdmin, PromosAdmin, ReportsAdmin, SettingsAdmin, UsersAdmin, useMe,
+  AgentsAdmin, AuditAdmin, BookingsAdmin, WithholdingReport, ListingsAdmin, Overview, PaymentsAdmin, PromosAdmin, ReportsAdmin, SettingsAdmin, UsersAdmin, useMe,
 } from "./Console";
 import Notice from "../../components/ui/Notice";
 import HomeContentAdmin from "./HomeContentAdmin";
@@ -176,6 +176,7 @@ const adminTabs: { to: string; label: string; Icon: LucideIcon; end?: boolean }[
   { to: "/admin/promos", label: "Promo codes", Icon: Tag },
   { to: "/admin/home", label: "Home page", Icon: LayoutTemplate },
   { to: "/admin/reports", label: "Levy report", Icon: FileSpreadsheet },
+  { to: "/admin/tax", label: "Withholding tax", Icon: Landmark },
   { to: "/admin/audit", label: "Audit log", Icon: History },
   { to: "/admin/settings", label: "Settings", Icon: Settings },
 ];
@@ -196,7 +197,10 @@ export default function AdminLayout() {
     <div className="min-h-screen bg-(--bg-primary) md:flex">
       <aside className="sticky top-0 z-40 bg-nearblack md:h-screen md:w-56 md:shrink-0 md:overflow-y-auto">
         <div className="flex items-center justify-between px-4 py-3">
-          <Link to="/" className="font-display italic text-lg text-mint">Avistay</Link>
+          <Link to="/" className="flex items-center gap-2" aria-label="NaivaStay home">
+            <span className="rounded-lg bg-white p-1"><img src="/logo-mark.png" alt="" className="h-6 w-auto" /></span>
+            <span className="text-white font-semibold">NaivaStay</span>
+          </Link>
           <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{me.data.is_superadmin ? "Super admin" : "Admin"}</span>
         </div>
         <nav aria-label="Admin" className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-col md:overflow-visible">
@@ -223,6 +227,7 @@ export default function AdminLayout() {
           <Route path="/promos" element={<PromosAdmin />} />
           <Route path="/home" element={<HomeContentAdmin />} />
           <Route path="/reports" element={<ReportsAdmin />} />
+          <Route path="/tax" element={<WithholdingReport />} />
           <Route path="/audit" element={<AuditAdmin />} />
           <Route path="/settings" element={<SettingsAdmin />} />
         </Routes>

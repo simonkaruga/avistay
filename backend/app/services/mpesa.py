@@ -123,7 +123,7 @@ async def stk_push(phone: str, amount_kes: int, account_ref: str) -> str:
         "PhoneNumber": phone,
         "CallBackURL": callback_url(),
         "AccountReference": account_ref,
-        "TransactionDesc": "Avistay booking",
+        "TransactionDesc": "NaivaStay booking",
     })
     data = _json(resp)
     if resp.status_code != 200 or str(data.get("ResponseCode")) != "0" or not data.get("CheckoutRequestID"):

@@ -442,7 +442,7 @@ export default function Profile() {
               <Info className="w-5 h-5 text-blue-500" aria-hidden="true" />
             </div>
             <div className="flex-1">
-              <p className="font-semibold text-(--text-primary) text-sm">About Avistay</p>
+              <p className="font-semibold text-(--text-primary) text-sm">About NaivaStay</p>
               <p className="text-xs text-(--text-muted) mt-0.5">How it works · Legal</p>
             </div>
             {chevron}
@@ -462,8 +462,8 @@ export default function Profile() {
         <DeleteAccountSheet open={deleteOpen} onClose={() => setDeleteOpen(false)} />
 
         <p className="text-center text-[13px] text-(--text-muted) pb-2">
-          Avistay v1.0 · Built by{" "}
-          <a href="https://avinayasolutions.com" target="_blank" rel="noopener noreferrer" className="underline">Avinaya Solutions</a>
+          NaivaStay v1.0 · A product of{" "}
+          <a href="https://avinayasolutions.com" target="_blank" rel="noopener noreferrer" className="underline">Avinaya Solutions Ltd</a>
         </p>
       </div>
 
@@ -489,7 +489,7 @@ export default function Profile() {
         <h1 className="font-display italic text-white relative z-10" style={{ fontSize: "clamp(1.8rem, 8vw, 2.6rem)" }}>
           Welcome back.
         </h1>
-        <p className="text-white/50 text-sm mt-1.5 relative z-10">Sign in to Avistay</p>
+        <p className="text-white/50 text-sm mt-1.5 relative z-10">Sign in to NaivaStay</p>
       </div>
 
       <div className="px-5 pt-6 max-w-sm mx-auto space-y-5">

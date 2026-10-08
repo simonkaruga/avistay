@@ -89,7 +89,7 @@ async def _issue_tokens(user: User, response: Response, request: Request | None 
     the phone app doesn't sign you out of the website."""
     if user.role == "banned":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail="This account has been suspended. Contact Avistay support if you think this is a mistake.")
+                            detail="This account has been suspended. Contact NaivaStay support if you think this is a mistake.")
     access = create_access_token(user.id)
     refresh, jti = create_refresh_token(user.id)
     if await _redis_ok():
@@ -127,7 +127,7 @@ async def _send_email(to: str, subject: str, body: str) -> None:
     from sendgrid.helpers.mail import Mail
     sg = sendgrid.SendGridAPIClient(api_key=settings.SENDGRID_API_KEY)
     message = Mail(
-        from_email="noreply@avistay.com",
+        from_email="noreply@naivastay.com",
         to_emails=to,
         subject=subject,
         plain_text_content=body,
@@ -181,7 +181,7 @@ async def update_profile(
                 if not body.phone_code or not await _consume_otp(ph, body.phone_code):
                     raise HTTPException(status_code=400, detail="Enter the code we sent to your new number")
                 if (await db.execute(select(User.id).where(User.phone.in_(stored_variants(ph)), User.id != user.id))).first():
-                    raise HTTPException(status_code=409, detail="This number is already on another Avistay account")
+                    raise HTTPException(status_code=409, detail="This number is already on another NaivaStay account")
                 user.phone = ph
     if body.sms_opt_in is not None:
         user.sms_opt_in = body.sms_opt_in
@@ -202,7 +202,7 @@ async def request_otp(body: OTPRequest, request: Request):
         await redis.set(_otp_key(body.phone), otp, ex=OTP_TTL)
     else:
         _otp_fallback[body.phone] = otp
-    await _send_sms(body.phone, f"Your Avistay code is {otp}. Valid 5 minutes.")
+    await _send_sms(body.phone, f"Your NaivaStay code is {otp}. Valid 5 minutes.")
 
 
 async def _consume_otp(phone: str, code: str) -> bool:
@@ -317,14 +317,14 @@ async def forgot_password(body: ForgotPasswordBody, db: AsyncSession = Depends(g
 
     await _send_email(
         to=email,
-        subject="Reset your Avistay password",
+        subject="Reset your NaivaStay password",
         body=(
             f"Hi {user.name or 'there'},\n\n"
             f"Click the link below to reset your password:\n\n"
             f"{reset_url}\n\n"
             f"This link expires in 30 minutes.\n\n"
             f"If you didn't request this, just ignore this email.\n\n"
-            f"The Avistay team"
+            f"The NaivaStay team"
         ),
     )
 
@@ -426,7 +426,7 @@ async def google_callback(
     user   = result.scalar_one_or_none()
 
     # Only join an existing account by email if Google has verified that email,
-    # otherwise anyone could claim someone else's Avistay account.
+    # otherwise anyone could claim someone else's NaivaStay account.
     if not user and email and info.get("verified_email"):
         result = await db.execute(select(User).where(User.email == email, User.deleted_at.is_(None)))
         user   = result.scalar_one_or_none()

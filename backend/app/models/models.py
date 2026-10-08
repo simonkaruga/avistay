@@ -55,6 +55,7 @@ class User(Base):
     # "Sign out everywhere": any login token issued before this is refused
     # (password reset, ban, account deletion). Works with or without Redis.
     sessions_revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    kra_pin: Mapped[Optional[str]] = mapped_column(String(11))   # hosts: for withholding tax on payouts
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     properties: Mapped[list["Property"]] = relationship(back_populates="owner")
@@ -80,6 +81,8 @@ class Property(Base):
     response_time_hours: Mapped[Optional[int]] = mapped_column(SmallInteger)
     cancellation_policy: Mapped[str] = mapped_column(String(30), default="moderate")
     area: Mapped[Optional[str]] = mapped_column(String(30), index=True)   # one of NAIVASHA_AREAS
+    # Tourism Regulatory Authority licence/registration number (required to go live).
+    tra_licence_no: Mapped[Optional[str]] = mapped_column(String(40))
     # House rules & policies — the owner's choice (cancellation + min stay above too).
     deposit_amount: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")  # KES, 0 = no deposit
     max_guests: Mapped[Optional[int]] = mapped_column(SmallInteger)
@@ -92,7 +95,7 @@ class Property(Base):
     parties_allowed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     quiet_hours: Mapped[Optional[str]] = mapped_column(String(11))           # "22:00-07:00"
     house_rules: Mapped[Optional[str]] = mapped_column(Text)                 # anything else, in the owner's words
-    # Home-page curation by the Avistay team ("Stay at our top unique properties").
+    # Home-page curation by the NaivaStay team ("Stay at our top unique properties").
     featured_rank: Mapped[Optional[int]] = mapped_column(SmallInteger)        # set = featured; lower shows first
     featured_tagline: Mapped[Optional[str]] = mapped_column(String(80))       # e.g. "Private jetty on the lake"
     ical_import_url: Mapped[Optional[str]] = mapped_column(String(500))
@@ -209,6 +212,8 @@ class Payment(Base):
     # Card surcharge the guest paid on top of `amount` (charges only). Not part
     # of the booking money, so normal refunds don't include it.
     fee_amount: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    # Host payouts: withholding tax deducted and remitted to KRA by NaivaStay.
+    tax_withheld: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
     # Refunds of one specific charge (e.g. a duplicate/late payment).
     refund_of: Mapped[Optional[str]] = mapped_column(ForeignKey("payments.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -280,7 +285,7 @@ class Agent(Base):
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False, unique=True)
     agency_name: Mapped[Optional[str]] = mapped_column(String(200))
-    # Personal code on the agent's share links: avistay.com/property/…?ref=AV7K2Q9X
+    # Personal code on the agent's share links: naivastay.com/property/…?ref=AV7K2Q9X
     ref_code: Mapped[str] = mapped_column(String(12), unique=True, nullable=False, default=lambda: new_ref_code())
     commission_pct: Mapped[int] = mapped_column(SmallInteger, default=5)  # percentage
     status: Mapped[str] = mapped_column(
@@ -420,6 +425,19 @@ class Dispute(Base):
     messages: Mapped[list["DisputeMessage"]] = relationship(
         back_populates="dispute", order_by="DisputeMessage.created_at"
     )
+
+
+class Message(Base):
+    """Guest ↔ host chat about one booking (the NaivaStay team can read it too)."""
+    __tablename__ = "messages"
+    __table_args__ = (Index("ix_messages_booking_created", "booking_id", "created_at"),)
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
+    booking_id: Mapped[str] = mapped_column(ForeignKey("bookings.id"), nullable=False)
+    sender_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    read_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class DisputeMessage(Base):

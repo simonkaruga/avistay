@@ -1,4 +1,4 @@
-# Running Avistay locally
+# Running NaivaStay locally
 
 ```bash
 npm run setup     # first time: installs Node packages + Python environment

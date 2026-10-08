@@ -42,7 +42,7 @@ export default function AgentDashboard() {
         </div>
         <h2 className="text-xl font-bold text-nearblack mb-2">Not yet an agent</h2>
         <p className="text-sm text-nearblack/55 max-w-xs mb-6">
-          Apply to become an Avistay agent and earn 5% of the room price on every booking you bring.
+          Apply to become an NaivaStay agent and earn 5% of the room price on every booking you bring.
         </p>
         <button
           onClick={() => navigate("/agent/apply")}
@@ -123,7 +123,7 @@ export default function AgentDashboard() {
         {[
           ["1", "Copy a property link from the Properties tab"],
           ["2", "Share it with your client on WhatsApp or social media"],
-          ["3", "They book and pay on Avistay. We track your referral"],
+          ["3", "They book and pay on NaivaStay. We track your referral"],
           ["4", "After your client checks in, your commission is sent to your M-Pesa together with the host's payout"],
         ].map(([n, text]) => (
           <div key={n} className="flex gap-3 mb-2.5 last:mb-0">

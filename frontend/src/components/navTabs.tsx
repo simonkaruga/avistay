@@ -38,9 +38,8 @@ const GUEST_TABS = [EXPLORE, SEARCH, SAVED, TRIPS, PROFILE];
 const HOST_TABS = [EXPLORE, SEARCH, DASHBOARD, TRIPS, PROFILE];
 const ADMIN_TABS = [EXPLORE, SEARCH, ADMIN, TRIPS, PROFILE];
 
-/** Tabs for the signed-in user: hosts get Dashboard, staff get Admin, instead of Saved. */
-export function useNavTabs(): NavTab[] {
-  const { data: me } = useQuery({
+function useMe() {
+  return useQuery({
     queryKey: ["me"],
     queryFn: async () => {
       const r = await api("/auth/me");
@@ -50,6 +49,26 @@ export function useNavTabs(): NavTab[] {
     retry: false,
     staleTime: 5 * 60_000,
   });
+}
+
+/** Unread guest–host messages, for a badge on the Trips tab (signed-in people only). */
+export function useUnreadBadge(): number {
+  const { data: me } = useMe();
+  const { data } = useQuery({
+    queryKey: ["unread-messages"],
+    queryFn: async () => {
+      const r = await api("/messages/unread");
+      return r.ok ? (r.json() as Promise<{ total: number }>) : { total: 0 };
+    },
+    enabled: !!me,
+    refetchInterval: 60_000,
+  });
+  return data?.total ?? 0;
+}
+
+/** Tabs for the signed-in user: hosts get Dashboard, staff get Admin, instead of Saved. */
+export function useNavTabs(): NavTab[] {
+  const { data: me } = useMe();
   if (me?.role === "admin") return ADMIN_TABS;
   return me?.role === "owner" ? HOST_TABS : GUEST_TABS;
 }

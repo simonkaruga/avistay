@@ -17,7 +17,7 @@ from app.services.payments import card_fee
 from app.workers.tasks import _send_b2c_async
 from tests.conftest import auth_cookies, session_factory
 
-KEY = "sk_test_avistay"
+KEY = "sk_test_naivastay"
 TOTAL = 15_500          # 10,000 room + 200 levy + 300 fee + 5,000 deposit
 FEE = card_fee(TOTAL)   # 3.5% rounded up → 543
 
@@ -99,7 +99,7 @@ async def test_start_card_payment_charges_total_plus_fee(client, db):
     assert f"/booking-confirm/{booking_id}" in init.call_args.kwargs["callback_url"]
     p = await _charge(booking_id)
     assert (p.method, p.amount, p.fee_amount, p.status) == ("card", TOTAL, FEE, "pending")
-    assert p.provider_request_id == f"AVC-{p.id}"
+    assert p.provider_request_id == f"NSC-{p.id}"
 
 
 @pytest.mark.asyncio
@@ -258,7 +258,7 @@ async def test_ambiguous_card_refund_is_left_for_a_human(client, db):
     guest_id, booking_id = await _pending_booking(db, status="confirmed")
     async with session_factory() as s:
         charge = Payment(booking_id=booking_id, type="charge", method="card", amount=TOTAL, fee_amount=FEE,
-                         status="completed", provider_request_id=f"AVC-{uuid.uuid4()}")
+                         status="completed", provider_request_id=f"NSC-{uuid.uuid4()}")
         s.add(charge)
         await s.flush()
         refund = Payment(booking_id=booking_id, type="deposit_refund", amount=5000, status="pending")

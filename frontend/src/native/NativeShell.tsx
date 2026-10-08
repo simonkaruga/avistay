@@ -2,7 +2,7 @@
  * App-only behaviour (iOS/Android). Renders nothing; on the website it isn't loaded.
  *
  * - Android back button: go back in the app, exit from the home screen
- * - Deep links: https://avistay.com/property/123 opens that page in the app
+ * - Deep links: https://naivastay.com/property/123 opens that page in the app
  * - Status bar + splash screen styling
  */
 import { useEffect } from "react";
@@ -13,7 +13,7 @@ import { StatusBar, Style } from "@capacitor/status-bar";
 import { platform } from "./platform";
 
 const ROOT_PATHS = new Set(["/", "/owner", "/admin", "/agent"]);
-const APP_HOSTS = new Set(["avistay.com", "www.avistay.com"]);
+const APP_HOSTS = new Set(["naivastay.com", "www.naivastay.com"]);
 
 export default function NativeShell() {
   const navigate = useNavigate();

@@ -4,7 +4,7 @@ Operator commands.
     python -m app.cli make-superadmin <phone or email>
     python -m app.cli list-admins
 
-The person must have signed in to Avistay at least once (so their account
+The person must have signed in to NaivaStay at least once (so their account
 exists). Making someone a super admin also makes them an admin.
 """
 import asyncio
@@ -33,7 +33,7 @@ async def make_superadmin(who: str) -> int:
         cond = User.email == who.strip().lower() if "@" in who else User.phone.in_(_phone_variants(who))
         user = (await db.execute(select(User).where(cond, User.deleted_at.is_(None)))).scalar_one_or_none()
         if not user:
-            print(f"No account found for {who}. Ask them to sign in to Avistay once, then run this again.")
+            print(f"No account found for {who}. Ask them to sign in to NaivaStay once, then run this again.")
             return 1
         user.role, user.is_superadmin = "admin", True
         from app.core.audit_log import log_event

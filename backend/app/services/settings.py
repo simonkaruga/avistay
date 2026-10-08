@@ -28,8 +28,9 @@ class PlatformSettings:
     owner_cancel_penalty_pct: int = 10    # of the room price, from the next payout
     owner_strike_limit: int = 3           # cancellations in 12 months before a listing pauses
     card_surcharge_pct: float = 3.5       # guest pays this on card payments (covers Paystack's fee)
+    withholding_tax_pct: float = 5.0      # deducted from host payouts and remitted to KRA
     support_phone: str = "+254700000000"
-    support_email: str = "hello@avistay.com"
+    support_email: str = "hello@naivastay.com"
     site_notice: str = ""                 # optional banner text across the site
 
 
@@ -44,6 +45,7 @@ SPEC: dict[str, tuple[str, str, float | None, float | None]] = {
     "owner_cancel_penalty_pct": ("Host cancellation penalty (%)", "Of the room price, taken from the next payout", 0, 50),
     "owner_strike_limit": ("Cancellation strikes before pause", "Within 12 months", 1, 10),
     "card_surcharge_pct": ("Card surcharge (%)", "Added when a guest pays by card. Set it to cover Paystack's fee. Not refunded when the guest cancels.", 0, 10),
+    "withholding_tax_pct": ("Withholding tax on host payouts (%)", "Deducted from each payout and remitted to KRA. Confirm the current rate with your accountant.", 0, 30),
     "support_phone": ("Support phone", "Shown to guests and hosts", None, None),
     "support_email": ("Support email", "Shown to guests and hosts", None, None),
     "site_notice": ("Site notice", "Optional banner, e.g. planned maintenance. Leave empty for none.", None, None),

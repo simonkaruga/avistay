@@ -155,7 +155,7 @@ export default function HouseRulesFields({ value, onChange, pricePerNight }: {
           </div>
         </div>
         <span className="block text-[11px] text-(--text-muted) mt-1">
-          Guests pay it with the booking. Avistay holds it and returns it {site.depositDays} after check-out, unless you report damage, in which case our team decides.
+          Guests pay it with the booking. NaivaStay holds it and returns it {site.depositDays} after check-out, unless you report damage, in which case our team decides.
         </span>
       </div>
 

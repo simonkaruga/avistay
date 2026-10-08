@@ -6,7 +6,7 @@ import { Trash2 } from "lucide-react";
 import { api } from "../utils/api";
 import DeleteAccountSheet from "../components/DeleteAccountSheet";
 
-/** Public page Google Play links to: how to delete a Avistay account. */
+/** Public page Google Play links to: how to delete a NaivaStay account. */
 export default function DeleteAccount() {
   const site = useSite();
   const [open, setOpen] = useState(false);
@@ -20,7 +20,7 @@ export default function DeleteAccount() {
     <div className="min-h-screen bg-(--bg-primary) pt-24 pb-10 px-5">
       <div className="max-w-md mx-auto space-y-4 text-sm text-(--text-muted) leading-relaxed">
         <h1 className="flex items-center gap-2 text-xl font-semibold text-(--text-primary)">
-          <Trash2 className="w-5 h-5" aria-hidden="true" /> Delete your Avistay account
+          <Trash2 className="w-5 h-5" aria-hidden="true" /> Delete your NaivaStay account
         </h1>
         <p>You can delete your account yourself, in the app or on this website: open <strong>Profile</strong> and tap <strong>Delete my account</strong>.</p>
         <p>We erase your name, phone number, email, password, ID documents and notification settings, and take any listings offline.

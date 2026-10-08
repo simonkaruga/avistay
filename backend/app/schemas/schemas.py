@@ -4,6 +4,18 @@ from pydantic import BaseModel, field_validator, Field
 
 from app.core.phone import normalize_ke
 
+KRA_PIN_RE = r"^[A-Z]\d{9}[A-Z]$"
+
+
+def clean_tra_licence(v: Optional[str]) -> Optional[str]:
+    """Tourism Regulatory Authority number: uppercase, letters/digits and / - . only."""
+    v = (v or "").strip().upper()
+    if not v:
+        return None
+    if len(v) < 3 or not all(c.isalnum() or c in "/-. " for c in v):
+        raise ValueError("Enter the licence number exactly as it appears on your TRA certificate")
+    return v   # e.g. A012345678Z (people) / P051234567A (companies)
+
 
 # ── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -86,6 +98,12 @@ class PropertyCreate(BaseModel):
     parties_allowed: bool = False
     quiet_hours: Optional[str] = None
     house_rules: Optional[str] = Field(None, max_length=2000)
+    tra_licence_no: Optional[str] = Field(None, max_length=40)   # Tourism Regulatory Authority number
+
+    @field_validator("tra_licence_no")
+    @classmethod
+    def _tra(cls, v: Optional[str]) -> Optional[str]:
+        return clean_tra_licence(v)
 
     @field_validator("check_in_from", "check_out_until")
     @classmethod
@@ -147,6 +165,7 @@ class PropertyOut(BaseModel):
     parties_allowed: bool = False
     quiet_hours: Optional[str] = None
     house_rules: Optional[str] = None
+    tra_licence_no: Optional[str] = None
     active: bool
     images: list[PropertyImageOut] = []
 
@@ -229,6 +248,8 @@ class BookingOut(BaseModel):
     deposit_note: Optional[str] = None
     dispute_id: Optional[str] = None
     dispute_status: Optional[str] = None
+    host: Optional[dict] = None              # host name + phone once paid (guest view)
+    unread_messages: int = 0
     can_cancel: bool = False
     can_report: bool = False
 

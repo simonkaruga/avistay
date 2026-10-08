@@ -2,7 +2,7 @@
  * Agent referral codes. A visitor who arrives on any link with ?ref=CODE is
  * credited to that agent if they book within 30 days on this device.
  */
-const KEY = "avistay.ref";
+const KEY = "naivastay.ref";
 const DAYS = 30;
 
 export function captureReferral(search: string = window.location.search): void {

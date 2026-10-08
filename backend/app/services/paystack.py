@@ -2,7 +2,7 @@
 Thin Paystack client for card payments. No database access. State changes
 live in app/services/payments.py, shared with M-Pesa.
 
-Amounts are whole KES everywhere in Avistay; Paystack wants the subunit
+Amounts are whole KES everywhere in NaivaStay; Paystack wants the subunit
 (cents), so convert only at this boundary.
 """
 import hashlib
@@ -38,6 +38,14 @@ class ChargeStatus:
 
 def enabled() -> bool:
     return bool(settings.PAYSTACK_SECRET_KEY)
+
+
+def mode() -> str:
+    """"off" | "test" | "live", for the admin dashboard. Never exposes the key itself."""
+    key = settings.PAYSTACK_SECRET_KEY
+    if not key:
+        return "off"
+    return "test" if key.startswith("sk_test_") else "live"
 
 
 def _headers() -> dict:

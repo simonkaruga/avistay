@@ -20,12 +20,12 @@
             </intent-filter>
 
             <!-- Shared links (WhatsApp, SMS) open in the app. Verified via
-                 https://avistay.com/.well-known/assetlinks.json -->
+                 https://naivastay.com/.well-known/assetlinks.json -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="avistay.com" />
+                <data android:scheme="https" android:host="naivastay.com" />
                 <data android:pathPrefix="/property/" />
                 <data android:pathPrefix="/bookings" />
                 <data android:pathPrefix="/disputes/" />

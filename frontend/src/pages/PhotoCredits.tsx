@@ -23,7 +23,7 @@ function CreditList({ photos }: { photos: PlacePhoto[] }) {
 }
 
 export default function PhotoCredits() {
-  useSEO({ title: "Photo credits", description: "Credits for the photographs used on Avistay.", noIndex: true });
+  useSEO({ title: "Photo credits", description: "Credits for the photographs used on NaivaStay.", noIndex: true });
   return (
     <div className="min-h-screen bg-(--bg-primary) pt-header pb-24">
       <div className="max-w-3xl mx-auto px-4 text-sm text-(--text-muted) leading-relaxed">
@@ -31,7 +31,7 @@ export default function PhotoCredits() {
           <ArrowLeft className="w-4 h-4" aria-hidden="true" /> About
         </Link>
         <h1 className="text-2xl font-semibold text-(--text-primary) mb-2">Photo credits</h1>
-        <p className="mb-6">Thank you to the photographers whose work appears on Avistay.</p>
+        <p className="mb-6">Thank you to the photographers whose work appears on NaivaStay.</p>
         {PLACES.map(place => (
           <section key={place.slug} className="mb-6">
             <h2 className="font-semibold text-(--text-primary) mb-1.5">{place.name}</h2>

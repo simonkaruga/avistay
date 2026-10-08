@@ -47,7 +47,7 @@ def signed_upload_params(purpose: str, user_id: str) -> dict:
         raise RuntimeError("Cloudinary is not configured")
     params: dict[str, str | int] = {
         "timestamp": int(time.time()),
-        "folder": f"avistay/{UPLOAD_FOLDERS[purpose]}/{user_id}",
+        "folder": f"naivastay/{UPLOAD_FOLDERS[purpose]}/{user_id}",
     }
     return {
         **params,

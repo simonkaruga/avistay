@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Routes, Route, NavLink, useLocation, useNavigate, useParams } from "react-router-dom";
-import { AlertCircle, BadgeCheck, Building2, CalendarDays, ChevronRight, ExternalLink, Home as HomeIcon, KeyRound, LayoutGrid, Link2, MessageSquareWarning, Sparkles, TrendingUp } from "lucide-react";
+import { AlertCircle, BadgeCheck, Building2, CalendarDays, ChevronRight, ExternalLink, Home as HomeIcon, KeyRound, Landmark, LayoutGrid, Link2, MessageSquareWarning, TrendingUp } from "lucide-react";
 import PhotoUploader, { photoStatus, type UploadedPhoto } from "../../components/PhotoUploader";
 import ListingGallery from "./ListingGallery";
 import OwnerBookings from "./OwnerBookings";
@@ -13,6 +13,10 @@ import HouseRulesFields, { DEFAULT_HOUSE_RULES, rulesFromListing, rulesToPayload
 import StatusBadge from "../../components/ui/StatusBadge";
 import { fmtDate, kes } from "../../utils/format";
 import LocationPicker from "../../components/LocationPicker";
+import ListingWizard from "./ListingWizard";
+import Compliance, { ComplianceBanner } from "./Compliance";
+import MessageThread from "../../components/MessageThread";
+import { useUnreadBadge } from "../../components/navTabs";
 
 import { api } from "../../utils/api";
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -23,6 +27,11 @@ interface DashboardData {
   total_earned: number;
   pending_payout: number;
   upcoming: UpcomingBooking[];
+  calendar_sync?: {
+    linked: number;
+    last_synced_at: string | null;
+    double_bookings: { booking_id: string; property_title: string; nights: string[] }[];
+  };
 }
 
 interface UpcomingBooking {
@@ -47,6 +56,51 @@ async function fetchDashboard(): Promise<DashboardData> {
 }
 
 // ── Sub-pages ─────────────────────────────────────────────────────────────────
+
+function timeAgo(iso: string) {
+  const mins = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const h = Math.round(mins / 60);
+  return h < 48 ? `${h} h ago` : `${Math.round(h / 24)} days ago`;
+}
+
+/** Compact status of the Airbnb/Booking.com link, with a clear warning on a double booking. */
+function CalendarSyncCard({ sync }: { sync: NonNullable<DashboardData["calendar_sync"]> }) {
+  const fmt = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("en-KE", { day: "numeric", month: "short" });
+  return (
+    <div className="space-y-2">
+      {sync.double_bookings.map(c => (
+        <div key={c.booking_id} role="alert" className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4">
+          <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" aria-hidden="true" />
+          <div className="min-w-0 text-sm">
+            <p className="font-semibold text-red-700">Double booking: {c.property_title}</p>
+            <p className="text-red-700/90">
+              {c.nights.slice(0, 4).map(fmt).join(", ")}{c.nights.length > 4 ? " …" : ""} is booked on NaivaStay and on another site.
+              Cancel the other booking now, or contact NaivaStay support.
+            </p>
+          </div>
+        </div>
+      ))}
+      <NavLink to="/owner/ical" className="flex items-center gap-3 rounded-2xl bg-(--bg-surface) p-4">
+        <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${sync.linked ? "bg-forest/10" : "bg-amber-50"}`}>
+          <Link2 className={`w-4.5 h-4.5 ${sync.linked ? "text-forest" : "text-amber-600"}`} aria-hidden="true" />
+        </span>
+        <span className="flex-1 min-w-0">
+          <span className="block text-sm font-semibold text-(--text-primary)">
+            {sync.linked ? `Calendar sync on · ${sync.linked} calendar${sync.linked === 1 ? "" : "s"} linked` : "Link your Airbnb or Booking.com calendar"}
+          </span>
+          <span className="block text-xs text-(--text-muted)">
+            {sync.linked
+              ? sync.last_synced_at ? `Last checked ${timeAgo(sync.last_synced_at)}` : "Waiting for the first check"
+              : "Avoid double bookings: nights sold elsewhere are blocked here automatically"}
+          </span>
+        </span>
+        <ChevronRight className="w-4 h-4 text-(--text-muted) shrink-0" aria-hidden="true" />
+      </NavLink>
+    </div>
+  );
+}
 
 function Dashboard() {
   const { data, isLoading, error } = useQuery({ queryKey: ["owner-dash"], queryFn: fetchDashboard });
@@ -95,6 +149,12 @@ function Dashboard() {
           </NavLink>
         </div>
       )}
+
+      {/* Tax & licence details still needed */}
+      {(data?.properties ?? 0) > 0 && <ComplianceBanner />}
+
+      {/* Airbnb / Booking.com calendar sync */}
+      {(data?.properties ?? 0) > 0 && data?.calendar_sync && <CalendarSyncCard sync={data.calendar_sync} />}
 
       {/* Quick block — prominent card for owners who also list on Airbnb/Booking.com */}
       <QuickBlockCard />
@@ -205,196 +265,6 @@ function QuickBlockCard() {
         </div>
       )}
     </div>
-  );
-}
-
-function NewListing() {
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const [form, setForm] = useState({
-    title: "", type: "cottage", price_per_night: "", description: "",
-    lat: "", lng: "", what3words: "", landmark_instructions: "", response_time_hours: "", area: "",
-  });
-  const [rules, setRules] = useState<HouseRules>(DEFAULT_HOUSE_RULES);
-  const [rawDetails, setRawDetails] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [photos, setPhotos] = useState<UploadedPhoto[]>([]);
-
-  function set(key: string, val: string) {
-    setForm(f => ({ ...f, [key]: val }));
-  }
-
-  async function generateDescription() {
-    if (!rawDetails) return;
-    setAiLoading(true);
-    const res = await api("/owner/ai/description", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        raw_details: rawDetails,
-        property_type: form.type,
-        price_per_night: Number(form.price_per_night) || 5000,
-      }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      set("description", data.description);
-    }
-    setAiLoading(false);
-  }
-
-  /** Record uploaded photos on the listing in one request, in the order shown. */
-  async function saveImages(propertyId: string, readyPhotos: UploadedPhoto[]): Promise<string | null> {
-    const res = await api(`/owner/properties/${propertyId}/images`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ urls: readyPhotos.map(p => p.url) }),
-    });
-    if (res.ok) return null;
-    const d = await res.json().catch(() => ({}));
-    return typeof d.detail === "string" ? d.detail : "Your photos couldn't be saved";
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true); setError("");
-    const res = await api("/properties/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...form,
-        ...rulesToPayload(rules),
-        price_per_night: Number(form.price_per_night),
-        lat: form.lat ? Number(form.lat) : null,
-        lng: form.lng ? Number(form.lng) : null,
-        response_time_hours: form.response_time_hours ? Number(form.response_time_hours) : null,
-        area: form.area || null,
-      }),
-    });
-    setSaving(false);
-    if (res.ok) {
-      const saved = await res.json();
-      const { ready } = photoStatus(photos);
-      const photoError = ready.length ? await saveImages(saved.id, ready) : null;
-      queryClient.invalidateQueries({ queryKey: ["owner-dash"] });
-      queryClient.invalidateQueries({ queryKey: ["owner-properties"] });
-      if (photoError) {
-        // Listing exists — send them to edit it, where they can add the photos again.
-        navigate(`/owner/listing/edit/${saved.id}`, { state: { photoError } });
-        return;
-      }
-      navigate("/owner");
-    } else {
-      const err = await res.json();
-      setError(err.detail ?? "Failed to save listing");
-    }
-  }
-
-  const types = ["cottage", "villa", "apartment", "conference", "campsite", "house"];
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="flex items-center gap-3 mb-2">
-        <button type="button" onClick={() => navigate("/owner")} className="text-(--text-muted) text-xl">‹</button>
-        <h1 className="font-semibold text-(--text-primary)">New listing</h1>
-      </div>
-
-      <Field label="Property title *">
-        <input required value={form.title} onChange={e => set("title", e.target.value)}
-          placeholder="e.g. Lakeside Cottage with Hippo Views"
-          className={inputCls} />
-      </Field>
-
-      <Field label="Property type">
-        <select value={form.type} onChange={e => set("type", e.target.value)} className={inputCls}>
-          {types.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
-        </select>
-      </Field>
-
-      <Field label="Price per night (KES) *">
-        <input required type="number" min={500} value={form.price_per_night}
-          onChange={e => set("price_per_night", e.target.value)}
-          placeholder="e.g. 8500" className={inputCls} />
-      </Field>
-
-
-      <Field label="Typical response time (hours)">
-        <input type="number" min={1} max={72} value={form.response_time_hours}
-          onChange={e => set("response_time_hours", e.target.value)}
-          placeholder="e.g. 2" className={inputCls} />
-      </Field>
-
-      <Field label="Area *">
-        <select required value={form.area} onChange={e => set("area", e.target.value)} className={inputCls}>
-          <option value="" disabled>Where in Naivasha is it?</option>
-          {NAIVASHA_AREAS.map(a => <option key={a.slug} value={a.slug}>{a.label}</option>)}
-        </select>
-      </Field>
-
-      <HouseRulesFields value={rules} onChange={setRules} pricePerNight={Number(form.price_per_night) || undefined} />
-
-
-
-      {/* AI description writer */}
-      <div className="bg-(--bg-surface) rounded-2xl p-4 space-y-2">
-        <p className="text-sm font-medium text-(--text-primary)">
-          Description
-          <span className="ml-2 inline-flex items-center gap-0.5 text-xs text-teal font-normal"><Sparkles className="w-3 h-3" /> Avi can write it</span>
-        </p>
-        <textarea value={rawDetails} onChange={e => setRawDetails(e.target.value)}
-          placeholder="Tell AI what you have: 3 bed, lake view, sleeps 6, wifi, bbq, 2km from Hell's Gate…"
-          rows={2} className={`${inputCls} resize-none`} />
-        <button type="button" onClick={generateDescription} disabled={aiLoading || !rawDetails}
-          className="text-xs text-teal font-medium disabled:opacity-40">
-          {aiLoading ? "Avi is writing…" : <><Sparkles className="w-3.5 h-3.5 inline mr-1" />Ask Avi to write it</>}
-        </button>
-        <textarea value={form.description} onChange={e => set("description", e.target.value)}
-          placeholder="Or write your own description…"
-          rows={4} className={`${inputCls} resize-none`} />
-      </div>
-
-      {/* Location */}
-      <div className="bg-(--bg-surface) rounded-2xl p-4 space-y-3">
-        <p className="text-sm font-medium text-(--text-primary)">Location pin</p>
-        <LocationPicker
-          lat={form.lat}
-          lng={form.lng}
-          onChange={(lat, lng) => { set("lat", lat); set("lng", lng); }}
-        />
-        <Field label="What3words (optional)">
-          <input value={form.what3words} onChange={e => set("what3words", e.target.value)}
-            placeholder="e.g. lake.gate.path" className={inputCls} />
-        </Field>
-        <Field label="Landmark directions">
-          <textarea value={form.landmark_instructions}
-            onChange={e => set("landmark_instructions", e.target.value)}
-            placeholder="e.g. From Total petrol station, green gate 200m on left"
-            rows={2} className={`${inputCls} resize-none`} />
-        </Field>
-      </div>
-
-      {/* Photos */}
-      <div className="bg-(--bg-surface) rounded-2xl p-4 space-y-3">
-        <p className="text-sm font-medium text-(--text-primary)">Photos &amp; videos</p>
-        <PhotoUploader value={photos} onChange={setPhotos} maxPhotos={30} />
-      </div>
-
-      {error && <p className="text-red-500 text-sm text-center" role="alert">{error}</p>}
-      {photoStatus(photos).failed > 0 && (
-        <p className="text-amber-700 text-sm text-center" role="alert">Some photos didn't upload. Tap Retry on them or remove them.</p>
-      )}
-
-      <p className="text-xs text-(--text-muted) text-center">
-        Your listing goes live after admin review
-      </p>
-
-      <button type="submit" disabled={saving || !photoStatus(photos).canSave}
-        className="w-full bg-forest disabled:bg-gray-300 text-white font-semibold py-3.5 rounded-2xl text-sm">
-        {saving ? "Saving…" : photoStatus(photos).uploading ? `Uploading ${photoStatus(photos).uploading} photo(s)…` : "Save listing"}
-      </button>
-    </form>
   );
 }
 
@@ -708,12 +578,12 @@ function ICalSync() {
   }
 
   function copyExportUrl() {
-    navigator.clipboard.writeText(`https://avistay.com/api/ical/export/${propertyId}`);
+    navigator.clipboard.writeText(`https://naivastay.com/api/ical/export/${propertyId}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
-  const exportUrl = `https://avistay.com/api/ical/export/${propertyId}`;
+  const exportUrl = `https://naivastay.com/api/ical/export/${propertyId}`;
 
   return (
     <div className="space-y-5">
@@ -731,7 +601,7 @@ function ICalSync() {
         <p className="text-sm font-semibold text-forest">How double-booking protection works</p>
         {[
           "Paste each platform's iCal URL below. We import their blocked dates automatically",
-          "Copy your Avistay export URL and paste it into Airbnb & Booking.com as an external calendar",
+          "Copy your NaivaStay export URL and paste it into Airbnb & Booking.com as an external calendar",
           "We sync every 30 minutes both ways. If a conflict is ever found, you get a WhatsApp alert instantly",
         ].map((s, i) => (
           <div key={i} className="flex gap-2.5">
@@ -810,9 +680,9 @@ function ICalSync() {
 
           {/* Export URL */}
           <div className="bg-(--bg-surface) rounded-2xl p-4 space-y-2">
-            <p className="text-sm font-semibold text-(--text-primary)">Your Avistay export URL</p>
+            <p className="text-sm font-semibold text-(--text-primary)">Your NaivaStay export URL</p>
             <p className="text-sm text-(--text-muted)">
-              Paste this into Airbnb and Booking.com as an "external calendar" so they block your Avistay dates automatically.
+              Paste this into Airbnb and Booking.com as an "external calendar" so they block your NaivaStay dates automatically.
             </p>
             <div className="bg-(--bg-primary) rounded-xl px-3 py-2.5 flex items-center gap-2">
               <p className="text-[12px] text-(--text-muted) flex-1 truncate font-mono">{exportUrl}</p>
@@ -922,8 +792,9 @@ function MoreMenu() {
   const items = [
     { to: "/owner/calendar",    Icon: CalendarDays, label: "Availability calendar", desc: "Block or open dates on your property" },
     { to: "/owner/ical",        Icon: Link2,        label: "iCal sync",             desc: "Connect Airbnb / Booking.com calendar" },
+    { to: "/owner/compliance",  Icon: Landmark,     label: "Tax & licence",         desc: "Your KRA PIN and TRA licence numbers" },
     { to: "/owner/claims",      Icon: MessageSquareWarning, label: "Problems & damage claims", desc: "Guest reports and your damage claims" },
-    { to: "/owner/listing/new", Icon: Building2,    label: "Add new listing",       desc: "List another property on Avistay" },
+    { to: "/owner/listing/new", Icon: Building2,    label: "Add new listing",       desc: "List another property on NaivaStay" },
     { to: "/",                  Icon: ExternalLink, label: "Browse as guest",       desc: "Switch to the guest-facing portal" },
   ];
   return (
@@ -949,6 +820,11 @@ function MoreMenu() {
   );
 }
 
+function OwnerMessages() {
+  const { bookingId } = useParams<{ bookingId: string }>();
+  return <div className="-mx-4 -my-5"><MessageThread bookingId={bookingId!} backTo="/owner/bookings" /></div>;
+}
+
 // ── Bottom nav tabs ───────────────────────────────────────────────────────────
 
 const OWNER_TABS = [
@@ -962,6 +838,7 @@ const OWNER_TABS = [
 // ── Layout ────────────────────────────────────────────────────────────────────
 
 export default function OwnerLayout() {
+  const unread = useUnreadBadge();
   return (
     <div className="min-h-screen bg-(--bg-primary) pt-header pb-20">
 
@@ -971,13 +848,8 @@ export default function OwnerLayout() {
         style={{ background: "rgba(255,255,255,0.95)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)" }}
       >
         <div className="flex items-center gap-2 mr-auto">
-          <span
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-black shrink-0"
-            style={{ background: "linear-gradient(135deg, #1f4d36 0%, #2a6446 60%, #b8722a 100%)", boxShadow: "0 2px 8px rgba(31,77,54,0.30)" }}
-          >A</span>
-          <span className="font-display italic text-forest leading-none" style={{ fontSize: "1.15rem" }}>
-            Avistay
-          </span>
+          <img src="/logo-mark.png" alt="" className="h-8 w-auto shrink-0" />
+          <img src="/logo-wordmark.png" alt="NaivaStay" className="h-5 w-auto shrink-0" />
           <span className="ml-1 text-[13px] font-bold text-teal bg-teal/10 px-2 py-0.5 rounded-full">
             Host
           </span>
@@ -992,7 +864,9 @@ export default function OwnerLayout() {
         <Routes>
           <Route path="/"                     element={<Dashboard />} />
           <Route path="/listings"             element={<MyListings />} />
-          <Route path="/listing/new"          element={<NewListing />} />
+          <Route path="/listing/new"          element={<ListingWizard />} />
+          <Route path="/compliance"           element={<Compliance />} />
+          <Route path="/messages/:bookingId"  element={<OwnerMessages />} />
           <Route path="/listing/edit/:propId" element={<EditListing />} />
           <Route path="/bookings"             element={<OwnerBookings />} />
           <Route path="/earnings"             element={<Earnings />} />
@@ -1029,6 +903,10 @@ export default function OwnerLayout() {
                     style={{ background: "rgba(31,77,54,0.08)" }} aria-hidden="true" />
                 )}
                 <Icon className="w-6 h-6 relative z-10" />
+                {to === "/owner/bookings" && unread > 0 && (
+                  <span className="absolute top-1 left-1/2 ml-2 min-w-4.5 h-4.5 px-1 rounded-full bg-clay text-white text-[10px] font-bold flex items-center justify-center z-20"
+                    aria-label={`${unread} unread messages`}>{unread}</span>
+                )}
                 <span className={`text-[13px] leading-none relative z-10 ${isActive ? "font-bold" : "font-medium"}`}>
                   {label}
                 </span>

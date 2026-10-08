@@ -1,5 +1,5 @@
 {
-  "name": "avistay-frontend",
+  "name": "naivastay-frontend",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "lint": "eslint src --ext ts,tsx",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
-    "build:app": "tsc && VITE_API_URL=${VITE_API_URL:-https://api.avistay.com} vite build && cap sync",
+    "build:app": "tsc && VITE_API_URL=${VITE_API_URL:-https://api.naivastay.com} vite build && cap sync",
     "android": "npm run build:app && cap open android",
     "ios": "npm run build:app && cap open ios",
     "assets": "npx --yes @capacitor/assets@3 generate --android --ios --iconBackgroundColor '#F7F4EC' --iconBackgroundColorDark '#F7F4EC' --splashBackgroundColor '#1e4a22' --splashBackgroundColorDark '#1e4a22'"

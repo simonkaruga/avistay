@@ -58,3 +58,12 @@ session_factory = _SessionFactory
 def auth_cookies(user_id: str, role: str = "guest") -> dict:
     token = create_access_token(user_id)
     return {"access_token": token}
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _fresh_rate_limits():
+    """Each test starts with clean rate limits (the in-process fallback would
+    otherwise carry counts from one test into the next)."""
+    from app.core import deps
+    deps._local_hits.clear()
+    yield

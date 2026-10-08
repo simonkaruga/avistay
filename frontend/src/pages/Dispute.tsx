@@ -26,7 +26,7 @@ interface DisputeDetail {
   max_guest_refund?: number; max_owner_award?: number;
 }
 
-const ROLE_LABEL = { guest: "Guest", owner: "Host", admin: "Avistay team" } as const;
+const ROLE_LABEL = { guest: "Guest", owner: "Host", admin: "NaivaStay team" } as const;
 const ROLE_ICON = { guest: UserIcon, owner: HomeIcon, admin: ShieldCheck } as const;
 const POLL_MS = 10_000;
 

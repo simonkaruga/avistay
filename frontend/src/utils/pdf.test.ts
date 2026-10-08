@@ -23,7 +23,7 @@ describe("company invoice PDF", () => {
     generateCorporateInvoicePDF({
       id: "abcdef12-0000-0000-0000-000000000000", check_in: "2026-11-05", check_out: "2026-11-07",
       total_amount: 15_000, platform_fee: 300, room_amount: 10_000, levy_amount: 200, deposit_amount: 5_000,
-      checkin_code: "1234", mpesa_ref: "AVC-9f8e7d6c-1111", company_name: "Acme Ltd", kra_pin: "P051234567A",
+      checkin_code: "1234", mpesa_ref: "NSC-9f8e7d6c-1111", company_name: "Acme Ltd", kra_pin: "P051234567A",
     }, "Lake Cottage");
 
     const all = texts.join("\n");

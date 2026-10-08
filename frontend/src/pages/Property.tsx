@@ -302,7 +302,7 @@ export default function Property() {
       "name": prop.title,
       "description": prop.description ?? `${prop.type} in Naivasha, Kenya`,
       "image": prop.images.map(i => i.cloudinary_url),
-      "url": `https://avistay.com/property/${prop.id}`,
+      "url": `https://naivastay.com/property/${prop.id}`,
       "priceRange": `KES ${prop.price_per_night.toLocaleString()}/night`,
       "currenciesAccepted": "KES",
       "paymentAccepted": "M-Pesa",
@@ -344,7 +344,7 @@ export default function Property() {
 
   const imgs         = [...prop.images].sort((a, b) => a.display_order - b.display_order);
   const mapsUrl      = prop.lat && prop.lng ? `https://www.google.com/maps/dir/?api=1&destination=${prop.lat},${prop.lng}&travelmode=driving` : null;
-  const waUrl        = `https://wa.me/?text=${encodeURIComponent(`Check out this place in Naivasha:\nhttps://avistay.com/property/${prop.id}`)}`;
+  const waUrl        = `https://wa.me/?text=${encodeURIComponent(`Check out this place in Naivasha:\nhttps://naivastay.com/property/${prop.id}`)}`;
   const avgRating    = reviews.length ? reviews.reduce((s, r) => s + r.avg_score, 0) / reviews.length : null;
   const amenities    = getAmenities(prop.type, prop.description);
   const displayedRev = showAllRev ? reviews : reviews.slice(0, 4);
@@ -355,7 +355,7 @@ export default function Property() {
   const avgValue       = reviews.length ? reviews.reduce((s, r) => s + r.value_score,       0) / reviews.length : 0;
 
   function share() {
-    const url = `https://avistay.com/property/${prop!.id}`;
+    const url = `https://naivastay.com/property/${prop!.id}`;
     if (navigator.share) {
       navigator.share({ title: prop!.title, text: `Check out this home in Naivasha`, url }).catch(() => {});
     } else {
@@ -402,7 +402,7 @@ export default function Property() {
               <span className="text-xs font-semibold uppercase tracking-wide text-(--text-muted)">{prop.type}{prop.max_guests ? ` · sleeps ${prop.max_guests}` : ""}</span>
               {prop.verified_tier >= 2 && (
                 <span className="inline-flex items-center gap-1 bg-forest/10 text-forest text-xs font-bold px-2 py-0.5 rounded-full">
-                  <BadgeCheck className="w-3.5 h-3.5" aria-hidden="true" /> Verified by Avistay
+                  <BadgeCheck className="w-3.5 h-3.5" aria-hidden="true" /> Verified by NaivaStay
                 </span>
               )}
             </div>
@@ -424,7 +424,7 @@ export default function Property() {
               <RatingBadge value={avgRating} />
             </a>
           ) : (
-            <span className="self-start text-xs bg-mint/15 text-teal font-semibold px-2.5 py-1 rounded-full">New on Avistay</span>
+            <span className="self-start text-xs bg-mint/15 text-teal font-semibold px-2.5 py-1 rounded-full">New on NaivaStay</span>
           )}
         </div>
 
@@ -454,7 +454,7 @@ export default function Property() {
               {[
                 { icon: <HomeIcon className="w-6 h-6 text-teal" />, title: `Entire ${prop.type}`, sub: "The whole place is yours" },
                 cardsOn
-                  ? { icon: <Smartphone className="w-6 h-6 text-green-600" />, title: "M-Pesa or card", sub: "Pay by M-Pesa prompt, Visa, Mastercard or Apple Pay" }
+                  ? { icon: <Smartphone className="w-6 h-6 text-green-600" />, title: "M-Pesa or Paystack", sub: "M-Pesa prompt, or Visa, Mastercard and Apple Pay with Paystack" }
                   : { icon: <Smartphone className="w-6 h-6 text-green-600" />, title: "Pay with M-Pesa", sub: "A prompt on your phone, done in a minute" },
                 { icon: <Shield className="w-6 h-6 text-forest" />, title: "Payment protected", sub: `The host is paid ${protectWindow} after you check in` },
               ].map(h => (
@@ -545,7 +545,7 @@ export default function Property() {
                   { Icon: PartyPopper, k: "Parties & events", v: prop.parties_allowed ? "Allowed. Tell the host in advance" : "Not allowed" },
                   ...(prop.quiet_hours ? [{ Icon: Volume1, k: "Quiet hours", v: prop.quiet_hours.replace("-", " to ") }] : []),
                   ...(noCheckout.length ? [{ Icon: CalendarDays, k: "No check-out on", v: noCheckout.join(", ") }] : []),
-                  { Icon: Smartphone, k: "Payment", v: cardsOn ? "M-Pesa or card, in Kenyan shillings" : "M-Pesa, in Kenyan shillings" },
+                  { Icon: Smartphone, k: "Payment", v: cardsOn ? "M-Pesa or card with Paystack, in Kenyan shillings" : "M-Pesa, in Kenyan shillings" },
                 ].map(({ Icon, k, v }) => (
                   <div key={k} className="flex gap-3 px-4 py-3">
                     <dt className="flex items-center gap-2 w-40 shrink-0 text-sm font-medium text-(--text-primary)">
@@ -571,7 +571,7 @@ export default function Property() {
                 Guest reviews {reviews.length > 0 && <span className="text-(--text-muted) font-normal text-base">({reviews.length})</span>}
               </h2>
               {reviews.length === 0 ? (
-                <p className="text-sm text-(--text-muted)">No reviews yet. Only guests who stayed through Avistay can review, so every review here is real.</p>
+                <p className="text-sm text-(--text-muted)">No reviews yet. Only guests who stayed through NaivaStay can review, so every review here is real.</p>
               ) : (
                 <>
                   <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
@@ -671,7 +671,7 @@ export default function Property() {
               <span className="flex-1 min-w-0">
                 <span className="block font-semibold text-(--text-primary)">Hosted by {prop.host_name ?? "a local host"}</span>
                 <span className="flex items-center gap-2 flex-wrap text-xs text-(--text-muted) mt-0.5">
-                  {prop.host_since && <>On Avistay since {new Date(prop.host_since).getFullYear()}</>}
+                  {prop.host_since && <>On NaivaStay since {new Date(prop.host_since).getFullYear()}</>}
                   {prop.host_id_verified && (
                     <span className="inline-flex items-center gap-0.5 font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded-full">
                       <CheckCircle className="w-3 h-3" aria-hidden="true" /> ID verified

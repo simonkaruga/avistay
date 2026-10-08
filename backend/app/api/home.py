@@ -45,8 +45,15 @@ async def site_info(db: AsyncSession = Depends(get_db)):
             "card_payments": paystack.enabled(), "card_surcharge_pct": cfg.card_surcharge_pct,
             "guest_dispute_hours": cfg.guest_dispute_hours, "deposit_hold_days": cfg.deposit_hold_days,
             "service_fee_kes": cfg.service_fee_kes, "tourism_levy_pct": cfg.tourism_levy_pct,
-            "booking_hold_minutes": cfg.booking_hold_minutes, "default_commission_pct": cfg.default_commission_pct,
+            "booking_hold_minutes": cfg.booking_hold_minutes,
             "google_login": bool(settings.GOOGLE_CLIENT_ID)}
+
+
+@router.get("/site/hosting")
+async def hosting_terms(db: AsyncSession = Depends(get_db)):
+    """Host-side terms for the Become-a-host page. Kept out of /site so guest pages never load them."""
+    cfg = await refresh_settings(db)
+    return {"commission_pct": cfg.default_commission_pct}
 
 
 @router.get("/home")
@@ -115,7 +122,7 @@ def _offer_out(o: Offer) -> dict:
 
 def _check_image(v: Optional[str]) -> Optional[str]:
     if v and not is_our_media_url(v):
-        raise ValueError("Upload images through Avistay")
+        raise ValueError("Upload images through NaivaStay")
     return v or None
 
 
@@ -142,7 +149,7 @@ class OfferIn(BaseModel):
     def _internal_link(cls, v: str) -> str:
         # Only paths on our own site — no external or javascript: links in a banner.
         if not v.startswith("/") or v.startswith("//") or "\\" in v:
-            raise ValueError("Link must be a page on Avistay, starting with /")
+            raise ValueError("Link must be a page on NaivaStay, starting with /")
         return v
 
     @field_validator("promo_code")
